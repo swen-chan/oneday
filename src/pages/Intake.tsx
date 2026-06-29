@@ -25,6 +25,7 @@ function OptionGroup({ title, options, selectedId, onSelect }: OptionGroupProps)
             <button
               key={option.id}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => onSelect?.(option.id)}
               className={`min-h-12 rounded-[18px] border px-3 py-3 text-left text-sm font-medium leading-5 transition ${
                 isSelected
@@ -43,6 +44,8 @@ function OptionGroup({ title, options, selectedId, onSelect }: OptionGroupProps)
 
 export function Intake({ onContinue }: IntakeProps) {
   const [selectedConcern, setSelectedConcern] = useState(demoData.intake.concerns[0].id);
+  const [selectedState, setSelectedState] = useState(demoData.intake.currentState[0].id);
+  const [selectedChange, setSelectedChange] = useState(demoData.intake.desiredChanges[0].id);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -63,8 +66,18 @@ export function Intake({ onContinue }: IntakeProps) {
           selectedId={selectedConcern}
           onSelect={setSelectedConcern}
         />
-        <OptionGroup title="当前状态" options={demoData.intake.currentState} />
-        <OptionGroup title="14 天后希望看到的变化" options={demoData.intake.desiredChanges} />
+        <OptionGroup
+          title="当前状态"
+          options={demoData.intake.currentState}
+          selectedId={selectedState}
+          onSelect={setSelectedState}
+        />
+        <OptionGroup
+          title="14 天后希望看到的变化"
+          options={demoData.intake.desiredChanges}
+          selectedId={selectedChange}
+          onSelect={setSelectedChange}
+        />
       </div>
 
       <PrimaryButton onClick={onContinue} className="mt-8">

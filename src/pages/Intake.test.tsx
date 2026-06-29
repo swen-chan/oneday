@@ -37,4 +37,27 @@ describe("Intake", () => {
 
     expect(handleContinue).toHaveBeenCalledTimes(1);
   });
+
+  it("lets users select an option in every section", async () => {
+    const user = userEvent.setup();
+
+    render(<Intake onContinue={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: "情绪内耗" }));
+    await user.click(screen.getByRole("button", { name: "精力：偏低" }));
+    await user.click(screen.getByRole("button", { name: "开始对外表达" }));
+
+    expect(screen.getByRole("button", { name: "情绪内耗" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "精力：偏低" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "开始对外表达" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
 });
