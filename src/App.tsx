@@ -3,6 +3,7 @@ import { PrimaryButton } from "./components/Button";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { ProgressHeader } from "./components/ProgressHeader";
 import { demoData } from "./data/demoData";
+import { ActionCardPage } from "./pages/ActionCardPage";
 import { Intake } from "./pages/Intake";
 import { Landing } from "./pages/Landing";
 
@@ -88,6 +89,10 @@ export default function App() {
 
     if (currentStep.id === "intake") {
       return <Intake onContinue={goNext} />;
+    }
+
+    if (currentStep.id === "action-card") {
+      return <ActionCardPage onComplete={goNext} />;
     }
 
     return (
