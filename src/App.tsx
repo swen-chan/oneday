@@ -3,6 +3,7 @@ import { PrimaryButton } from "./components/Button";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { ProgressHeader } from "./components/ProgressHeader";
 import { demoData } from "./data/demoData";
+import { Landing } from "./pages/Landing";
 
 type FlowStep = {
   id: string;
@@ -79,6 +80,28 @@ export default function App() {
     setCurrentStepIndex((index) => Math.max(index - 1, 0));
   }
 
+  function renderCurrentStep() {
+    if (currentStep.id === "landing") {
+      return <Landing onStart={goNext} />;
+    }
+
+    return (
+      <>
+        <div className="flex flex-1 flex-col justify-center">
+          <p className="mb-3 text-sm font-medium text-dawn-orange">{currentStep.eyebrow}</p>
+          <h1 className="text-3xl font-semibold leading-tight">{currentStep.title}</h1>
+          <p className="mt-4 text-base leading-7 text-muted-text">{currentStep.body}</p>
+        </div>
+
+        {currentStep.primaryCta ? (
+          <PrimaryButton onClick={goNext} className="mt-12">
+            {currentStep.primaryCta}
+          </PrimaryButton>
+        ) : null}
+      </>
+    );
+  }
+
   return (
     <PhoneFrame>
       <ProgressHeader
@@ -86,18 +109,7 @@ export default function App() {
         totalSteps={flowSteps.length}
         onBack={isFirstStep ? undefined : goBack}
       />
-
-      <div className="flex flex-1 flex-col justify-center">
-        <p className="mb-3 text-sm font-medium text-dawn-orange">{currentStep.eyebrow}</p>
-        <h1 className="text-3xl font-semibold leading-tight">{currentStep.title}</h1>
-        <p className="mt-4 text-base leading-7 text-muted-text">{currentStep.body}</p>
-      </div>
-
-      {currentStep.primaryCta ? (
-        <PrimaryButton onClick={goNext} className="mt-12">
-          {currentStep.primaryCta}
-        </PrimaryButton>
-      ) : null}
+      {renderCurrentStep()}
     </PhoneFrame>
   );
 }
