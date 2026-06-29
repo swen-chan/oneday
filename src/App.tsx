@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PrimaryButton } from "./components/Button";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { ProgressHeader } from "./components/ProgressHeader";
@@ -77,6 +77,10 @@ export default function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const currentStep = flowSteps[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [currentStepIndex]);
 
   function goNext() {
     setCurrentStepIndex((index) => Math.min(index + 1, flowSteps.length - 1));

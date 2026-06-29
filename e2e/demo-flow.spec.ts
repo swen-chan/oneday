@@ -37,7 +37,13 @@ test.describe("One Day mobile demo flow", () => {
 
     for (const [index, step] of flow.entries()) {
       await expect(page.getByLabel("页面进度")).toContainText(`${index + 1} / ${flow.length}`);
-      await expect(page.getByRole("heading", { name: step.heading })).toBeVisible();
+
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+
+      const heading = page.getByRole("heading", { name: step.heading });
+      await expect(heading).toBeVisible();
+      const headingTop = await heading.evaluate((element) => element.getBoundingClientRect().top);
+      expect(headingTop).toBeGreaterThanOrEqual(0);
 
       if (step.cta) {
         await expect(page.getByRole("button", { name: step.cta })).toBeVisible();
