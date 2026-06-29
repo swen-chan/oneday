@@ -3,6 +3,7 @@ import { PrimaryButton } from "./components/Button";
 import { PhoneFrame } from "./components/PhoneFrame";
 import { ProgressHeader } from "./components/ProgressHeader";
 import { demoData } from "./data/demoData";
+import { Intake } from "./pages/Intake";
 import { Landing } from "./pages/Landing";
 
 type FlowStep = {
@@ -83,6 +84,10 @@ export default function App() {
   function renderCurrentStep() {
     if (currentStep.id === "landing") {
       return <Landing onStart={goNext} />;
+    }
+
+    if (currentStep.id === "intake") {
+      return <Intake onContinue={goNext} />;
     }
 
     return (
