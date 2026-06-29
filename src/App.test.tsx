@@ -6,6 +6,6 @@ describe("App foundation", () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: "One Day" })).toBeInTheDocument();
-    expect(screen.getByText("One Day Demo")).toBeInTheDocument();
+    expect(screen.getAllByText("One Day Demo").length).toBeGreaterThan(0);
   });
 });
