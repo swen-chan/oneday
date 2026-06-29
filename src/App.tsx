@@ -8,6 +8,7 @@ import { Checkin } from "./pages/Checkin";
 import { Feedback } from "./pages/Feedback";
 import { Intake } from "./pages/Intake";
 import { Landing } from "./pages/Landing";
+import { Progress } from "./pages/Progress";
 
 type FlowStep = {
   id: string;
@@ -103,6 +104,10 @@ export default function App() {
 
     if (currentStep.id === "feedback") {
       return <Feedback onViewProgress={goNext} />;
+    }
+
+    if (currentStep.id === "progress") {
+      return <Progress onPreviewReport={goNext} />;
     }
 
     return (
