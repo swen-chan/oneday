@@ -4,6 +4,7 @@ import { PhoneFrame } from "./components/PhoneFrame";
 import { ProgressHeader } from "./components/ProgressHeader";
 import { demoData } from "./data/demoData";
 import { ActionCardPage } from "./pages/ActionCardPage";
+import { Checkin } from "./pages/Checkin";
 import { Intake } from "./pages/Intake";
 import { Landing } from "./pages/Landing";
 
@@ -93,6 +94,10 @@ export default function App() {
 
     if (currentStep.id === "action-card") {
       return <ActionCardPage onComplete={goNext} />;
+    }
+
+    if (currentStep.id === "checkin") {
+      return <Checkin onSubmit={goNext} />;
     }
 
     return (
