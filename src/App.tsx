@@ -5,6 +5,7 @@ import { ProgressHeader } from "./components/ProgressHeader";
 import { demoData } from "./data/demoData";
 import { ActionCardPage } from "./pages/ActionCardPage";
 import { Checkin } from "./pages/Checkin";
+import { Feedback } from "./pages/Feedback";
 import { Intake } from "./pages/Intake";
 import { Landing } from "./pages/Landing";
 
@@ -98,6 +99,10 @@ export default function App() {
 
     if (currentStep.id === "checkin") {
       return <Checkin onSubmit={goNext} />;
+    }
+
+    if (currentStep.id === "feedback") {
+      return <Feedback onViewProgress={goNext} />;
     }
 
     return (
