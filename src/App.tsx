@@ -1,4 +1,7 @@
 import { useMemo, useState } from "react";
+import { PrimaryButton } from "./components/Button";
+import { PhoneFrame } from "./components/PhoneFrame";
+import { ProgressHeader } from "./components/ProgressHeader";
 import { demoData } from "./data/demoData";
 
 type FlowStep = {
@@ -67,7 +70,6 @@ export default function App() {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const currentStep = flowSteps[currentStepIndex];
   const isFirstStep = currentStepIndex === 0;
-  const isLastStep = currentStepIndex === flowSteps.length - 1;
 
   function goNext() {
     setCurrentStepIndex((index) => Math.min(index + 1, flowSteps.length - 1));
@@ -78,41 +80,24 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen bg-cream px-6 py-10 font-sans text-night-blue">
-      <section className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-[390px] flex-col rounded-[24px] bg-warm-white p-6 shadow-sm">
-        <header className="mb-12 flex min-h-10 items-center justify-between gap-4 text-sm">
-          {isFirstStep ? (
-            <span className="font-medium text-dawn-orange">One Day Demo</span>
-          ) : (
-            <button
-              type="button"
-              onClick={goBack}
-              className="rounded-full border border-soft-gold/40 px-4 py-2 font-medium text-night-blue"
-            >
-              返回
-            </button>
-          )}
-          <span aria-label="页面进度" className="font-medium text-muted-text">
-            {currentStepIndex + 1} / {flowSteps.length}
-          </span>
-        </header>
+    <PhoneFrame>
+      <ProgressHeader
+        currentStep={currentStepIndex + 1}
+        totalSteps={flowSteps.length}
+        onBack={isFirstStep ? undefined : goBack}
+      />
 
-        <div className="flex flex-1 flex-col justify-center">
-          <p className="mb-3 text-sm font-medium text-dawn-orange">{currentStep.eyebrow}</p>
-          <h1 className="text-3xl font-semibold leading-tight">{currentStep.title}</h1>
-          <p className="mt-4 text-base leading-7 text-muted-text">{currentStep.body}</p>
-        </div>
+      <div className="flex flex-1 flex-col justify-center">
+        <p className="mb-3 text-sm font-medium text-dawn-orange">{currentStep.eyebrow}</p>
+        <h1 className="text-3xl font-semibold leading-tight">{currentStep.title}</h1>
+        <p className="mt-4 text-base leading-7 text-muted-text">{currentStep.body}</p>
+      </div>
 
-        {currentStep.primaryCta ? (
-          <button
-            type="button"
-            onClick={isLastStep ? undefined : goNext}
-            className="mt-12 w-full rounded-full bg-night-blue px-5 py-4 text-base font-semibold text-warm-white shadow-sm"
-          >
-            {currentStep.primaryCta}
-          </button>
-        ) : null}
-      </section>
-    </main>
+      {currentStep.primaryCta ? (
+        <PrimaryButton onClick={goNext} className="mt-12">
+          {currentStep.primaryCta}
+        </PrimaryButton>
+      ) : null}
+    </PhoneFrame>
   );
 }
