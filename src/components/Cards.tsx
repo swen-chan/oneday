@@ -4,6 +4,8 @@ type ActionCardProps = {
   title: string;
   subtitle?: string;
   children: ReactNode;
+  className?: string;
+  titleClassName?: string;
 };
 
 type TaskCheckboxProps = {
@@ -28,11 +30,19 @@ type ReportSectionProps = {
   bullets: readonly string[];
 };
 
-export function ActionCard({ title, subtitle, children }: ActionCardProps) {
+export function ActionCard({
+  title,
+  subtitle,
+  children,
+  className = "",
+  titleClassName = "text-night-blue",
+}: ActionCardProps) {
   return (
-    <section className="rounded-[24px] border border-soft-gold/20 bg-warm-white p-5 shadow-sm">
+    <section
+      className={`rounded-[24px] border border-soft-gold/20 bg-warm-white p-5 shadow-sm ${className}`}
+    >
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-night-blue">{title}</h2>
+        <h2 className={`text-lg font-semibold ${titleClassName}`}>{title}</h2>
         {subtitle ? <p className="mt-1 text-sm leading-6 text-muted-text">{subtitle}</p> : null}
       </div>
       <div className="space-y-3">{children}</div>

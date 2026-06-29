@@ -8,14 +8,18 @@ type ActionCardPageProps = {
 
 type TaskListProps = {
   tasks: readonly DemoTask[];
+  itemClassName: string;
+  badgeClassName: string;
 };
 
-function TaskList({ tasks }: TaskListProps) {
+function TaskList({ tasks, itemClassName, badgeClassName }: TaskListProps) {
   return (
     <ol className="space-y-3">
       {tasks.map((task, index) => (
-        <li key={task.id} className="flex gap-3 rounded-[18px] bg-cream/70 p-4">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-warm-white text-sm font-semibold text-dawn-orange">
+        <li key={task.id} className={`flex gap-3 rounded-[18px] p-4 ${itemClassName}`}>
+          <span
+            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-sm font-semibold ${badgeClassName}`}
+          >
             {index + 1}
           </span>
           <div>
@@ -43,14 +47,32 @@ export function ActionCardPage({ onComplete }: ActionCardPageProps) {
 
       <div className="flex-1 space-y-4">
         <div role="region" aria-label="对内修复">
-          <ActionCard title="对内修复" subtitle="先把身体、情绪和节律拉回稳定。">
-            <TaskList tasks={demoData.tasks.internal} />
+          <ActionCard
+            title="对内修复"
+            subtitle="先把身体、情绪和节律拉回稳定。"
+            className="border-growth-green/30 bg-growth-green/5 shadow-[inset_4px_0_0_rgba(76,122,93,0.45)]"
+            titleClassName="text-growth-green"
+          >
+            <TaskList
+              tasks={demoData.tasks.internal}
+              itemClassName="bg-growth-green/10"
+              badgeClassName="bg-growth-green text-warm-white"
+            />
           </ActionCard>
         </div>
 
         <div role="region" aria-label="对外输出">
-          <ActionCard title="对外输出" subtitle="再用表达、连接和作品推动生活向前。">
-            <TaskList tasks={demoData.tasks.external} />
+          <ActionCard
+            title="对外输出"
+            subtitle="再用表达、连接和作品推动生活向前。"
+            className="border-dawn-orange/35 bg-dawn-orange/5 shadow-[inset_4px_0_0_rgba(245,158,91,0.5)]"
+            titleClassName="text-dawn-orange"
+          >
+            <TaskList
+              tasks={demoData.tasks.external}
+              itemClassName="bg-dawn-orange/10"
+              badgeClassName="bg-dawn-orange text-warm-white"
+            />
           </ActionCard>
         </div>
       </div>
