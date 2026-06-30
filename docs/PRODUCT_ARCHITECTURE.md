@@ -146,6 +146,20 @@ Cloud direction:
   internal adapter interfaces so later migration to Alibaba Cloud or another
   provider remains practical.
 
+Cloud provider boundary:
+
+- Business modules must not import cloud vendor SDKs directly.
+- Vendor SDK usage must be isolated inside infrastructure adapters.
+- Domain services should depend on internal interfaces, such as
+  `ObjectStorageProvider`, `ImageGenerationProvider`, `SmsProvider`, and
+  `NotificationProvider`.
+- Provider-specific request/response payloads should be normalized before they
+  enter business modules.
+- Database models, entitlement logic, cycle logic, tag logic, and AI orchestration
+  must remain vendor-agnostic.
+- If a vendor-specific feature is introduced, document the fallback or migration
+  path before using it in production logic.
+
 ## 6. AI Strategy
 
 Current decision:
@@ -207,6 +221,8 @@ Current direction:
   and CRM.
 - The first intake question set is not decided yet.
 - Intake should not become too long or conversion will suffer.
+- Until the first intake question set and tag taxonomy are decided, this should
+  be treated as a daily founder/partner push item.
 
 Tag sources:
 
@@ -262,6 +278,11 @@ Useful events:
 - First admin surface: API-only, minimal web admin, or delayed admin UI.
 - Content and copy library rules.
 - Compliance wording and forbidden-claim list.
+
+Daily reminder:
+
+- Push partners on the intake question set and CRM tag taxonomy until both are
+  defined well enough for schema design and MVP implementation.
 
 ## 11. Reference Links
 
