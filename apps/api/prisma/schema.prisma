@@ -1,0 +1,132 @@
+// One Day 私域运营平台 · 数据模型（Phase 0）
+// 原则（架构文档 §8）：标签结构化、带来源/置信度/时间戳；AI 推断与用户事实分开。
+// 隐私（DATA_SECURITY_BASELINE_TODO §一）：库内只存脱敏后数据——成员是代号，正文已打码。
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// 租户（品牌/运营者）。pilot 期只有 JING 一个，但模型按多租户设计。
+model Brand {
+  id        String   @id @default(cuid())
+  name      String
+  industry  String
+  createdAt DateTime @default(now())
+
+  groups          ChatGroup[]
+  contentPackages ContentPackage[]
+}
+
+// 一个私域微信群
+model ChatGroup {
+  id        String   @id @default(cuid())
+  brandId   String
+  name      String
+  createdAt DateTime @default(now())
+
+  brand    Brand         @relation(fields: [brandId], references: [id])
+  members  GroupMember[]
+  messages ChatMessage[]
+  imports  ChatImport[]
+}
+
+// 一次群记录导入（原始文件不落库，只记元数据）
+model ChatImport {
+  id           String       @id @default(cuid())
+  groupId      String
+  filename     String
+  messageCount Int
+  memberCount  Int
+  periodStart  DateTime
+  periodEnd    DateTime
+  status       ImportStatus @default(COMPLETED)
+  createdAt    DateTime     @default(now())
+
+  group    ChatGroup     @relation(fields: [groupId], references: [id])
+  messages ChatMessage[]
+}
+
+enum ImportStatus {
+  COMPLETED
+  FAILED
+}
+
+// 群成员（脱敏代号，无真名）
+model GroupMember {
+  id           String   @id @default(cuid())
+  groupId      String
+  alias        String // 「成员XXXX」，解析器生成的稳定代号
+  firstSeenAt  DateTime
+  lastActiveAt DateTime
+  messageCount Int      @default(0)
+
+  group    ChatGroup     @relation(fields: [groupId], references: [id])
+  messages ChatMessage[]
+  tags     MemberTag[]
+
+  @@unique([groupId, alias])
+  @@index([groupId, lastActiveAt])
+}
+
+// 群消息（正文已脱敏：手机号/微信号打码）
+model ChatMessage {
+  id          String      @id @default(cuid())
+  groupId     String
+  memberId    String
+  importId    String
+  sentAt      DateTime
+  contentType ContentType
+  content     String
+
+  group  ChatGroup   @relation(fields: [groupId], references: [id])
+  member GroupMember @relation(fields: [memberId], references: [id])
+  import ChatImport  @relation(fields: [importId], references: [id])
+
+  @@index([groupId, sentAt])
+  @@index([memberId, sentAt])
+}
+
+enum ContentType {
+  TEXT
+  MEDIA
+}
+
+// 成员标签（架构文档 §8：来源+置信度+时间戳，AI 推断与事实分开）
+model MemberTag {
+  id         String    @id @default(cuid())
+  memberId   String
+  key        String // 如 activity_level / interest / intent
+  value      String // 如 active / sleep_issues / high
+  source     TagSource
+  confidence Float? // AI_INFERRED 时必填，0-1
+  createdAt  DateTime  @default(now())
+
+  member GroupMember @relation(fields: [memberId], references: [id])
+
+  @@index([memberId, key])
+}
+
+enum TagSource {
+  BEHAVIOR // 由消息行为规则推出
+  AI_INFERRED // AI 推断（带置信度）
+  MANUAL // 运营者手动标注
+  CAMPAIGN // 活动来源
+}
+
+// 内容日历生成结果
+model ContentPackage {
+  id          String   @id @default(cuid())
+  brandId     String
+  monthTheme  String
+  industry    String
+  generatedBy String // provider 名（template / deepseek）
+  days        Json // GeneratedDayContent[]，出站前已过护栏
+  createdAt   DateTime @default(now())
+
+  brand Brand @relation(fields: [brandId], references: [id])
+}

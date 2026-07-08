@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #f7f8f7;
+  --color-surface: #ffffff;
+  --color-ink: #24282c;
+  --color-ink-soft: #5a6067;
+  --color-ink-muted: #8d939b;
+  --color-line: #e5e7e6;
+  --color-brand: #4e7d6f; /* 疗愈感的低饱和绿 */
+  --color-brand-soft: #edf3f1;
+  --color-warn: #b0813f;
+  --color-warn-soft: #f7f0e4;
+  --color-sleep: #7d8590;
+  --color-sleep-soft: #eef0f2;
+  --font-sans: var(--font-noto-sans-sc), "PingFang SC", system-ui, sans-serif;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
