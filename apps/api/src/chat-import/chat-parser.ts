@@ -63,7 +63,11 @@ export function parseWeChatExport(
     const header = line.match(HEADER_RE);
     if (header) {
       flush();
-      current = { sender: header[2].trim(), sentAt: parseTimestamp(header[1]), body: [] };
+      current = {
+        sender: header[2].trim(),
+        sentAt: parseTimestamp(header[1]),
+        body: [],
+      };
     } else if (current && line.trim() !== '') {
       current.body.push(line);
     } else if (current && line.trim() === '' && current.body.length > 0) {
@@ -82,7 +86,8 @@ export function parseWeChatExport(
     const existing = byMember.get(msg.senderAlias);
     if (existing) {
       existing.messageCount += 1;
-      if (msg.sentAt > existing.lastActiveAt) existing.lastActiveAt = msg.sentAt;
+      if (msg.sentAt > existing.lastActiveAt)
+        existing.lastActiveAt = msg.sentAt;
       if (msg.sentAt < existing.firstSeenAt) existing.firstSeenAt = msg.sentAt;
     } else {
       byMember.set(msg.senderAlias, {
@@ -94,7 +99,9 @@ export function parseWeChatExport(
     }
   }
 
-  const sorted = [...messages].sort((a, b) => a.sentAt.getTime() - b.sentAt.getTime());
+  const sorted = [...messages].sort(
+    (a, b) => a.sentAt.getTime() - b.sentAt.getTime(),
+  );
 
   return {
     messages,

@@ -27,12 +27,17 @@ const MOMENTS_MAX_LENGTH = 300;
 export class ContentCalendarService {
   constructor(private readonly provider: TextGenerationProvider) {}
 
-  async generate(rawRequest: ContentCalendarRequest): Promise<ContentCalendarPackage> {
+  async generate(
+    rawRequest: ContentCalendarRequest,
+  ): Promise<ContentCalendarPackage> {
     const request = RequestSchema.parse(rawRequest);
     const days: ContentCalendarPackage['days'] = [];
 
     for (let dayIndex = 1; dayIndex <= request.days; dayIndex++) {
-      days.push({ dayIndex, ...(await this.generateDayWithGuardrails(request, dayIndex)) });
+      days.push({
+        dayIndex,
+        ...(await this.generateDayWithGuardrails(request, dayIndex)),
+      });
     }
 
     return {
@@ -60,7 +65,9 @@ export class ContentCalendarService {
       const violations = this.checkDay(content);
       if (violations.length === 0) return content;
     }
-    throw new Error(`第${dayIndex}天内容连续 ${MAX_REWRITE_ATTEMPTS + 1} 次未通过护栏检查`);
+    throw new Error(
+      `第${dayIndex}天内容连续 ${MAX_REWRITE_ATTEMPTS + 1} 次未通过护栏检查`,
+    );
   }
 
   private checkDay(content: GeneratedDayContent): string[] {
@@ -73,7 +80,8 @@ export class ContentCalendarService {
     for (const [field, text] of fields) {
       const hits = findForbiddenClaims(text);
       if (hits.length > 0) violations.push(`${field}: ${hits.join('/')}`);
-      if (!text || text.trim().length === 0) violations.push(`${field}: 空内容`);
+      if (!text || text.trim().length === 0)
+        violations.push(`${field}: 空内容`);
     }
     if (content.momentsPost.length > MOMENTS_MAX_LENGTH) {
       violations.push(`momentsPost: 超长（${content.momentsPost.length} 字）`);

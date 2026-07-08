@@ -70,9 +70,9 @@ describe('parseWeChatExport', () => {
   });
 
   it('拒绝无法解析出任何消息的输入', () => {
-    expect(() => parseWeChatExport('随便一段不是导出格式的文字', { groupId: 'g1' })).toThrow(
-      /无法识别/,
-    );
+    expect(() =>
+      parseWeChatExport('随便一段不是导出格式的文字', { groupId: 'g1' }),
+    ).toThrow(/无法识别/);
   });
 
   it('报告导出的时间范围', () => {

@@ -20,9 +20,9 @@ const ANGLES = [
 export class TemplateContentProvider implements TextGenerationProvider {
   readonly name = 'template';
 
-  async generateDay(ctx: DayGenerationContext): Promise<GeneratedDayContent> {
+  generateDay(ctx: DayGenerationContext): Promise<GeneratedDayContent> {
     const angle = ANGLES[(ctx.dayIndex - 1) % ANGLES.length];
-    return {
+    return Promise.resolve({
       momentsPost:
         `【${ctx.monthTheme} · 第${ctx.dayIndex}天】${angle.act}。` +
         `${ctx.brandName}想陪你把「${ctx.monthTheme}」过成日常——` +
@@ -31,6 +31,6 @@ export class TemplateContentProvider implements TextGenerationProvider {
       dmScript:
         `最近${ctx.monthTheme}这个主题进行到第${ctx.dayIndex}天了，` +
         `想到你之前提过的状态，这个练习（${angle.act}）也许适合你，有空可以试试，不急。`,
-    };
+    });
   }
 }

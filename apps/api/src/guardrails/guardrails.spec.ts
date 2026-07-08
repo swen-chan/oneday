@@ -10,7 +10,9 @@ import {
 
 describe('findForbiddenClaims 医疗/疗效宣称检测', () => {
   it('放行正常养生内容', () => {
-    expect(findForbiddenClaims('每天揉腹五分钟，给自己一点安静的时间')).toEqual([]);
+    expect(findForbiddenClaims('每天揉腹五分钟，给自己一点安静的时间')).toEqual(
+      [],
+    );
   });
 
   it('检出疗效承诺词', () => {
@@ -19,7 +21,9 @@ describe('findForbiddenClaims 医疗/疗效宣称检测', () => {
   });
 
   it('检出诊断式表述', () => {
-    expect(findForbiddenClaims('你这是典型的抑郁症，需要马上调理')).toContain('抑郁症');
+    expect(findForbiddenClaims('你这是典型的抑郁症，需要马上调理')).toContain(
+      '抑郁症',
+    );
   });
 
   it('检出夸大功效词', () => {

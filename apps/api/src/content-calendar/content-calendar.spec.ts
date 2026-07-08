@@ -32,7 +32,9 @@ describe('ContentCalendarService（模板 fallback provider）', () => {
 
   it('内容引用品牌与主题上下文', async () => {
     const pkg = await service.generate(request);
-    const all = pkg.days.map((d) => d.momentsPost + d.groupTopic + d.dmScript).join('');
+    const all = pkg.days
+      .map((d) => d.momentsPost + d.groupTopic + d.dmScript)
+      .join('');
     expect(all).toContain('睡眠');
   });
 
@@ -58,7 +60,10 @@ describe('ContentCalendarService 护栏', () => {
         call += 1;
         if (call === 1) {
           return {
-            momentsPost: '七天根治失眠！立刻报名，这个方法保证见效'.padEnd(30, '。'),
+            momentsPost: '七天根治失眠！立刻报名，这个方法保证见效'.padEnd(
+              30,
+              '。',
+            ),
             groupTopic: '今晚聊聊怎么根治失眠',
             dmScript: '姐，我们这个营包治百病，你来试试',
           };
@@ -68,7 +73,8 @@ describe('ContentCalendarService 护栏', () => {
     };
     const service = new ContentCalendarService(dirtyOnce);
     const pkg = await service.generate({ ...request, days: 1 });
-    const all = pkg.days[0].momentsPost + pkg.days[0].groupTopic + pkg.days[0].dmScript;
+    const all =
+      pkg.days[0].momentsPost + pkg.days[0].groupTopic + pkg.days[0].dmScript;
     expect(all).not.toContain('根治');
     expect(all).not.toContain('包治百病');
   });
@@ -76,15 +82,17 @@ describe('ContentCalendarService 护栏', () => {
   it('provider 连续输出禁词时抛出且不产出脏内容', async () => {
     const alwaysDirty: TextGenerationProvider = {
       name: 'always-dirty',
-      async generateDay() {
-        return {
+      generateDay() {
+        return Promise.resolve({
           momentsPost: '根治失眠的秘密方法'.padEnd(30, '。'),
           groupTopic: '治愈一切',
           dmScript: '确诊了也不用去医院',
-        };
+        });
       },
     };
     const service = new ContentCalendarService(alwaysDirty);
-    await expect(service.generate({ ...request, days: 1 })).rejects.toThrow(/护栏/);
+    await expect(service.generate({ ...request, days: 1 })).rejects.toThrow(
+      /护栏/,
+    );
   });
 });
