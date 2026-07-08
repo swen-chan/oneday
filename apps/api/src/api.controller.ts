@@ -13,6 +13,7 @@ import {
   type ParsedExport,
 } from './chat-import/chat-parser';
 import { layerMembers } from './dashboard/member-layering';
+import { buildDisplayNames } from './dashboard/display-names';
 import { generateSyntheticExport } from './demo/synthetic-data';
 import { ContentCalendarService } from './content-calendar/content-calendar.service';
 import { InMemoryStore } from './store/in-memory.store';
@@ -96,11 +97,27 @@ export class ApiController {
       [...group.members.values()],
       group.latestPeriodEnd,
     );
+    // 展示层化名：与底层代号 1:1（撞名附完整代号消歧），数据层不变
+    const displayNames = buildDisplayNames(
+      [...group.members.values()].map((m) => m.alias),
+    );
+    const withNames = (
+      members: { alias: string; lastActiveAt: Date; messageCount: number }[],
+    ) =>
+      members.map((m) => ({
+        ...m,
+        displayName: displayNames.get(m.alias) ?? m.alias,
+      }));
     return {
       groupId: group.id,
       groupName: group.name,
       referenceDate: group.latestPeriodEnd,
-      ...result,
+      layers: {
+        active: withNames(result.layers.active),
+        cooling: withNames(result.layers.cooling),
+        sleeping: withNames(result.layers.sleeping),
+      },
+      summary: result.summary,
     };
   }
 

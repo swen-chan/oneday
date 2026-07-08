@@ -9,6 +9,7 @@ const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3210";
 
 interface Member {
   alias: string;
+  displayName?: string;
   lastActiveAt: string;
   messageCount: number;
 }
@@ -129,7 +130,7 @@ export default function DemoConsole() {
               <p className="mt-2 text-4xl font-bold">
                 {dashboard.summary.healthScore}
               </p>
-              <p className="mt-1 text-xs opacity-70">active=1 · cooling=0.5 加权</p>
+              <p className="mt-1 text-xs opacity-70">按活跃度加权：活跃计满分，降温计一半</p>
             </div>
             {(
               [
@@ -163,7 +164,7 @@ export default function DemoConsole() {
                       key={m.alias}
                       className="flex items-center justify-between text-sm"
                     >
-                      <span>{m.alias}</span>
+                      <span>{m.displayName ?? m.alias}</span>
                       <span className="text-xs text-ink-muted">
                         {daysAgo(m.lastActiveAt, dashboard.referenceDate)} ·{" "}
                         {m.messageCount} 条
