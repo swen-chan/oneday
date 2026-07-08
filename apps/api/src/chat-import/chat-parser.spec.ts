@@ -47,7 +47,7 @@ describe('parseWeChatExport', () => {
   it('默认脱敏：成员名转代号、正文手机号打码', () => {
     const result = parseWeChatExport(SAMPLE, { groupId: 'g1' });
     const senders = result.messages.map((m) => m.senderAlias);
-    expect(senders.every((s) => /^成员[A-Z0-9]{4}$/.test(s))).toBe(true);
+    expect(senders.every((s) => /^成员[A-Z0-9]{8}$/.test(s))).toBe(true);
     const last = result.messages[3];
     expect(last.content).not.toContain('13812345678');
     expect(last.content).toContain('138****5678');

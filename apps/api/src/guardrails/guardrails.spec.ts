@@ -91,6 +91,6 @@ describe('anonymizeDisplayName 成员名脱敏', () => {
   it('代号不含原名信息', () => {
     const alias = anonymizeDisplayName('王小美', 'group-1');
     expect(alias).not.toContain('王');
-    expect(alias).toMatch(/^成员[A-Z0-9]{4}$/);
+    expect(alias).toMatch(/^成员[A-Z0-9]{8}$/);
   });
 });
