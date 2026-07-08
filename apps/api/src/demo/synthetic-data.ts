@@ -7,6 +7,8 @@ export interface SyntheticExportOptions {
   days: number;
   endDate: Date;
   seed: number;
+  /** 画像配比（各 0-1，其余为沉睡）。缺省 active 0.5 / cooling 0.25。 */
+  profileMix?: { active: number; cooling: number };
 }
 
 const FIRST = [
@@ -66,11 +68,18 @@ export function generateSyntheticExport(
   const dayMs = 24 * 3600 * 1000;
   const start = options.endDate.getTime() - options.days * dayMs;
 
-  // 成员画像：1/2 活跃（最近常发言）、1/4 降温（只在前中期发言）、1/4 沉睡（只在开头发言）
+  // 成员画像按配比分配（默认 1/2 活跃、1/4 降温、其余沉睡）
+  const mix = options.profileMix ?? { active: 0.5, cooling: 0.25 };
+  const activeCount = Math.round(options.memberCount * mix.active);
+  const coolingCount = Math.round(options.memberCount * mix.cooling);
   const members = Array.from({ length: options.memberCount }, (_, i) => {
     const name = `${LAST[i % LAST.length]}${FIRST[(i * 7) % FIRST.length]}${i}`;
     const profile =
-      i % 4 === 0 ? 'sleeping' : i % 4 === 1 ? 'cooling' : 'active';
+      i < activeCount
+        ? 'active'
+        : i < activeCount + coolingCount
+          ? 'cooling'
+          : 'sleeping';
     return { name, profile };
   });
 

@@ -5,8 +5,18 @@ import type { ParsedExport } from '../chat-import/chat-parser';
 // Prisma/Postgres 接入被 Docker 环境阻塞（见 thread 记录），接口形状与
 // prisma/schema.prisma 对齐，换存储时控制器不动。demo-first 决策下可接受。
 
+export interface StoredBrand {
+  id: string;
+  name: string;
+  industry: string;
+  tagline: string;
+  defaultTheme: string;
+  groupIds: string[];
+}
+
 export interface StoredGroup {
   id: string;
+  brandId?: string;
   name: string;
   imports: {
     id: string;
@@ -31,6 +41,7 @@ export interface StoredGroup {
 
 @Injectable()
 export class InMemoryStore {
+  private brands = new Map<string, StoredBrand>();
   private groups = new Map<string, StoredGroup>();
   private seq = 0;
 
@@ -39,20 +50,49 @@ export class InMemoryStore {
     return `${prefix}_${this.seq.toString(36).padStart(6, '0')}`;
   }
 
-  createGroup(name: string): StoredGroup {
+  createBrand(input: {
+    name: string;
+    industry: string;
+    tagline: string;
+    defaultTheme: string;
+  }): StoredBrand {
+    const brand: StoredBrand = {
+      id: this.nextId('brd'),
+      groupIds: [],
+      ...input,
+    };
+    this.brands.set(brand.id, brand);
+    return brand;
+  }
+
+  listBrands(): StoredBrand[] {
+    return [...this.brands.values()];
+  }
+
+  findBrand(id: string): StoredBrand | undefined {
+    return this.brands.get(id);
+  }
+
+  createGroup(name: string, brandId?: string): StoredGroup {
     const group: StoredGroup = {
       id: this.nextId('grp'),
+      brandId,
       name,
       imports: [],
       members: new Map(),
       latestPeriodEnd: null,
     };
     this.groups.set(group.id, group);
+    if (brandId) this.brands.get(brandId)?.groupIds.push(group.id);
     return group;
   }
 
   findGroup(id: string): StoredGroup | undefined {
     return this.groups.get(id);
+  }
+
+  memberCountOf(groupId: string): number {
+    return this.groups.get(groupId)?.members.size ?? 0;
   }
 
   applyImport(

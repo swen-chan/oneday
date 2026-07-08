@@ -81,23 +81,39 @@ describe('Platform API (e2e)', () => {
     expect(calBody.generatedBy).toBe('template');
   });
 
-  it('demo seed：一键填充后看板三层皆有数据', async () => {
+  it('demo seed：三个演示品牌，健康分各不相同，看板三层皆有数据', async () => {
     const seedRes = await request(app.getHttpServer())
       .post('/api/demo/seed')
       .expect(201);
     const seedBody = seedRes.body as {
-      groupId: string;
-      import: { memberCount: number };
+      brands: { id: string; groupId: string; memberCount: number }[];
     };
-    expect(seedBody.import.memberCount).toBe(40);
+    expect(seedBody.brands).toHaveLength(3);
 
-    const dashRes = await request(app.getHttpServer())
-      .get(`/api/groups/${seedBody.groupId}/dashboard`)
+    const scores: number[] = [];
+    for (const brand of seedBody.brands) {
+      const dashRes = await request(app.getHttpServer())
+        .get(`/api/groups/${brand.groupId}/dashboard`)
+        .expect(200);
+      const dashBody = dashRes.body as { summary: Record<string, number> };
+      expect(dashBody.summary.activeCount).toBeGreaterThan(0);
+      expect(dashBody.summary.coolingCount).toBeGreaterThan(0);
+      expect(dashBody.summary.sleepingCount).toBeGreaterThan(0);
+      scores.push(dashBody.summary.healthScore);
+    }
+    // 多租户区分度：三个品牌健康分互不相同
+    expect(new Set(scores).size).toBe(3);
+
+    // 幂等：重复 seed 不产生重复品牌
+    const again = await request(app.getHttpServer())
+      .post('/api/demo/seed')
+      .expect(201);
+    expect((again.body as { brands: unknown[] }).brands).toHaveLength(3);
+
+    const listRes = await request(app.getHttpServer())
+      .get('/api/brands')
       .expect(200);
-    const dashBody = dashRes.body as { summary: Record<string, number> };
-    expect(dashBody.summary.activeCount).toBeGreaterThan(0);
-    expect(dashBody.summary.coolingCount).toBeGreaterThan(0);
-    expect(dashBody.summary.sleepingCount).toBeGreaterThan(0);
+    expect((listRes.body as { brands: unknown[] }).brands).toHaveLength(3);
   });
 
   it('非法导入内容返回 400', async () => {
