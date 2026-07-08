@@ -19,6 +19,7 @@ const SYNTHETIC_EXPORT = `2026-06-01 09:00:00 成员甲
 
 describe('Platform API (e2e)', () => {
   let app: INestApplication<App>;
+  let baseUrl: string;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -26,6 +27,11 @@ describe('Platform API (e2e)', () => {
     }).compile();
     app = moduleFixture.createNestApplication();
     await app.init();
+    // 显式绑定 127.0.0.1 的随机端口并用真实 URL 请求：
+    // 避免 supertest 隐式 listen 的 IPv4/IPv6 端口竞态（间歇 404 的根因，
+    // 参见 nestjs/nest#15239——请求可能打到本机同端口号的其他服务上）
+    await app.listen(0, '127.0.0.1');
+    baseUrl = await app.getUrl();
   });
 
   afterAll(async () => {
@@ -33,7 +39,7 @@ describe('Platform API (e2e)', () => {
   });
 
   it('完整 demo 流程：导入 → 看板 → 内容日历', async () => {
-    const importRes = await request(app.getHttpServer())
+    const importRes = await request(baseUrl)
       .post('/api/imports')
       .send({
         groupName: 'JING疗愈群',
@@ -50,7 +56,7 @@ describe('Platform API (e2e)', () => {
     expect(importBody.import.memberCount).toBe(2);
     const groupId = importBody.groupId;
 
-    const dashRes = await request(app.getHttpServer())
+    const dashRes = await request(baseUrl)
       .get(`/api/groups/${groupId}/dashboard`)
       .expect(200);
 
@@ -66,7 +72,7 @@ describe('Platform API (e2e)', () => {
     // 看板输出不得出现任何原始昵称
     expect(JSON.stringify(dashRes.body)).not.toContain('成员甲');
 
-    const calRes = await request(app.getHttpServer())
+    const calRes = await request(baseUrl)
       .post('/api/content-calendar')
       .send({
         brandName: 'JING',
@@ -82,7 +88,7 @@ describe('Platform API (e2e)', () => {
   });
 
   it('demo seed：三个演示品牌，健康分各不相同，看板三层皆有数据', async () => {
-    const seedRes = await request(app.getHttpServer())
+    const seedRes = await request(baseUrl)
       .post('/api/demo/seed')
       .expect(201);
     const seedBody = seedRes.body as {
@@ -92,7 +98,7 @@ describe('Platform API (e2e)', () => {
 
     const scores: number[] = [];
     for (const brand of seedBody.brands) {
-      const dashRes = await request(app.getHttpServer())
+      const dashRes = await request(baseUrl)
         .get(`/api/groups/${brand.groupId}/dashboard`)
         .expect(200);
       const dashBody = dashRes.body as { summary: Record<string, number> };
@@ -105,26 +111,26 @@ describe('Platform API (e2e)', () => {
     expect(new Set(scores).size).toBe(3);
 
     // 幂等：重复 seed 不产生重复品牌
-    const again = await request(app.getHttpServer())
+    const again = await request(baseUrl)
       .post('/api/demo/seed')
       .expect(201);
     expect((again.body as { brands: unknown[] }).brands).toHaveLength(3);
 
-    const listRes = await request(app.getHttpServer())
+    const listRes = await request(baseUrl)
       .get('/api/brands')
       .expect(200);
     expect((listRes.body as { brands: unknown[] }).brands).toHaveLength(3);
   });
 
   it('非法导入内容返回 400', async () => {
-    await request(app.getHttpServer())
+    await request(baseUrl)
       .post('/api/imports')
       .send({ groupName: 'g', filename: 'f.txt', content: '不是聊天记录' })
       .expect(400);
   });
 
   it('查询不存在的群返回 404', async () => {
-    await request(app.getHttpServer())
+    await request(baseUrl)
       .get('/api/groups/nope/dashboard')
       .expect(404);
   });
