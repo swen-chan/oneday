@@ -88,9 +88,7 @@ describe('Platform API (e2e)', () => {
   });
 
   it('demo seed：三个演示品牌，健康分各不相同，看板三层皆有数据', async () => {
-    const seedRes = await request(baseUrl)
-      .post('/api/demo/seed')
-      .expect(201);
+    const seedRes = await request(baseUrl).post('/api/demo/seed').expect(201);
     const seedBody = seedRes.body as {
       brands: { id: string; groupId: string; memberCount: number }[];
     };
@@ -111,14 +109,10 @@ describe('Platform API (e2e)', () => {
     expect(new Set(scores).size).toBe(3);
 
     // 幂等：重复 seed 不产生重复品牌
-    const again = await request(baseUrl)
-      .post('/api/demo/seed')
-      .expect(201);
+    const again = await request(baseUrl).post('/api/demo/seed').expect(201);
     expect((again.body as { brands: unknown[] }).brands).toHaveLength(3);
 
-    const listRes = await request(baseUrl)
-      .get('/api/brands')
-      .expect(200);
+    const listRes = await request(baseUrl).get('/api/brands').expect(200);
     expect((listRes.body as { brands: unknown[] }).brands).toHaveLength(3);
   });
 
@@ -130,8 +124,6 @@ describe('Platform API (e2e)', () => {
   });
 
   it('查询不存在的群返回 404', async () => {
-    await request(baseUrl)
-      .get('/api/groups/nope/dashboard')
-      .expect(404);
+    await request(baseUrl).get('/api/groups/nope/dashboard').expect(404);
   });
 });

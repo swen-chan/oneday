@@ -16,7 +16,15 @@ export interface GeneratedDayContent {
   dmScript: string; // 私信话术
 }
 
+/** 护栏命中后的重写提示：把违规表述回喂给 provider 做定向改写。 */
+export interface RewriteHint {
+  violations: string[];
+}
+
 export interface TextGenerationProvider {
   readonly name: string;
-  generateDay(ctx: DayGenerationContext): Promise<GeneratedDayContent>;
+  generateDay(
+    ctx: DayGenerationContext,
+    hint?: RewriteHint,
+  ): Promise<GeneratedDayContent>;
 }

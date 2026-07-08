@@ -79,6 +79,52 @@ describe('ContentCalendarService 护栏', () => {
     expect(all).not.toContain('包治百病');
   });
 
+  it('重写时把命中的禁词回喂给 provider（定向改写，finding 3）', async () => {
+    const receivedHints: string[][] = [];
+    const dirtyFirstAttempt: TextGenerationProvider = {
+      name: 'hint-check',
+      generateDay(ctx, hint) {
+        receivedHints.push(hint?.violations ?? []);
+        if (receivedHints.length === 1) {
+          return Promise.resolve({
+            momentsPost: '本方法根治失眠'.padEnd(30, '。'),
+            groupTopic: '聊聊',
+            dmScript: '试试看，不急。',
+          });
+        }
+        return new TemplateContentProvider().generateDay(ctx);
+      },
+    };
+    const service = new ContentCalendarService(dirtyFirstAttempt);
+    await service.generate({ ...request, days: 1 });
+    expect(receivedHints[0]).toEqual([]);
+    expect(receivedHints[1].join(' ')).toContain('根治');
+  });
+
+  it('单天失败隔离：某天连续违规只标记该天失败，其余天照常产出', async () => {
+    const dirtyDayOne: TextGenerationProvider = {
+      name: 'dirty-day-one',
+      generateDay(ctx) {
+        if (ctx.dayIndex === 1) {
+          return Promise.resolve({
+            momentsPost: '根治失眠的方法'.padEnd(30, '。'),
+            groupTopic: '治愈一切',
+            dmScript: '确诊了也不用去医院',
+          });
+        }
+        return new TemplateContentProvider().generateDay(ctx);
+      },
+    };
+    const service = new ContentCalendarService(dirtyDayOne);
+    const pkg = await service.generate({ ...request, days: 3 });
+    expect(pkg.days.map((d) => d.dayIndex)).toEqual([2, 3]);
+    expect(pkg.failedDays).toEqual([expect.objectContaining({ dayIndex: 1 })]);
+    const all = pkg.days
+      .map((d) => d.momentsPost + d.groupTopic + d.dmScript)
+      .join('');
+    expect(all).not.toContain('根治');
+  });
+
   it('provider 连续输出禁词时抛出且不产出脏内容', async () => {
     const alwaysDirty: TextGenerationProvider = {
       name: 'always-dirty',
