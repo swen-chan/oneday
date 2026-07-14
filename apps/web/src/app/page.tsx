@@ -66,6 +66,7 @@ export default function DemoConsole() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [calendar, setCalendar] = useState<CalendarPackage | null>(null);
   const [theme, setTheme] = useState("");
+  const [expandedLayers, setExpandedLayers] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -94,6 +95,7 @@ export default function DemoConsole() {
       setBrand(b);
       setTheme(b.defaultTheme);
       setCalendar(null);
+      setExpandedLayers({});
     } catch {
       setError("载入品牌数据失败");
     } finally {
@@ -192,6 +194,7 @@ export default function DemoConsole() {
             setBrand(null);
             setDashboard(null);
             setCalendar(null);
+            setExpandedLayers({});
           }}
           className="text-sm text-ink-muted transition hover:text-ink"
         >
@@ -240,24 +243,42 @@ export default function DemoConsole() {
                 ["降温成员 · 建议本周触达", dashboard.layers.cooling],
                 ["沉睡成员 · 唤醒优先级最高", dashboard.layers.sleeping],
               ] as const
-            ).map(([title, members]) => (
-              <div key={title} className="rounded-2xl border border-line bg-surface p-5">
-                <h3 className="mb-3 text-sm font-medium text-ink-soft">{title}</h3>
-                <ul className="flex flex-col gap-2">
-                  {members.slice(0, 8).map((m) => (
-                    <li key={m.alias} className="flex items-center justify-between text-sm">
-                      <span>{m.displayName ?? m.alias}</span>
-                      <span className="text-xs text-ink-muted">
-                        {daysAgo(m.lastActiveAt, dashboard.referenceDate)} · {m.messageCount} 条
-                      </span>
-                    </li>
-                  ))}
-                  {members.length > 8 && (
-                    <li className="text-xs text-ink-muted">…还有 {members.length - 8} 人</li>
-                  )}
-                </ul>
-              </div>
-            ))}
+            ).map(([title, members]) => {
+              const isExpanded = expandedLayers[title] ?? false;
+              const visibleMembers = isExpanded ? members : members.slice(0, 8);
+              return (
+                <div key={title} className="rounded-2xl border border-line bg-surface p-5">
+                  <h3 className="mb-3 text-sm font-medium text-ink-soft">{title}</h3>
+                  <ul className="flex flex-col gap-2">
+                    {visibleMembers.map((m) => (
+                      <li key={m.alias} className="flex items-center justify-between text-sm">
+                        <span>{m.displayName ?? m.alias}</span>
+                        <span className="text-xs text-ink-muted">
+                          {daysAgo(m.lastActiveAt, dashboard.referenceDate)} · {m.messageCount} 条
+                        </span>
+                      </li>
+                    ))}
+                    {members.length > 8 && (
+                      <li>
+                        <button
+                          type="button"
+                          aria-expanded={isExpanded}
+                          onClick={() =>
+                            setExpandedLayers((prev) => ({
+                              ...prev,
+                              [title]: !isExpanded,
+                            }))
+                          }
+                          className="text-xs text-ink-muted transition hover:text-brand"
+                        >
+                          {isExpanded ? "收起名单" : `…还有 ${members.length - 8} 人`}
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
