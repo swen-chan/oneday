@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 
 // One Day 私域运营台：账号入口 → 该品牌的工作台。
 // 多租户叙事：每个品牌有自己的群数据、健康分和内容默认值。
@@ -80,6 +80,24 @@ const contentPackagePresets = [
 type ContentPackageId = (typeof contentPackagePresets)[number]["id"] | "custom";
 type EntryMode = "login" | "register";
 
+const demoAccountPresets = [
+  {
+    label: "JING 运营账号",
+    email: "jing@oneday.demo",
+    password: "demo-1234",
+  },
+  {
+    label: "山语运营账号",
+    email: "shanyu@oneday.demo",
+    password: "demo-1234",
+  },
+  {
+    label: "绿原运营账号",
+    email: "lvyuan@oneday.demo",
+    password: "demo-1234",
+  },
+] as const;
+
 function daysAgo(iso: string, ref: string): string {
   const d = Math.floor(
     (new Date(ref).getTime() - new Date(iso).getTime()) / 86400000,
@@ -93,6 +111,12 @@ export default function DemoConsole() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [calendar, setCalendar] = useState<CalendarPackage | null>(null);
   const [entryMode, setEntryMode] = useState<EntryMode>("login");
+  const [loginEmail, setLoginEmail] = useState<string>(demoAccountPresets[0].email);
+  const [loginPassword, setLoginPassword] = useState<string>(demoAccountPresets[0].password);
+  const [registerName, setRegisterName] = useState("");
+  const [registerEmail, setRegisterEmail] = useState("");
+  const [registerPassword, setRegisterPassword] = useState("");
+  const [entryNotice, setEntryNotice] = useState<string | null>(null);
   const [theme, setTheme] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState<ContentPackageId>("weekly");
   const [customPackageName, setCustomPackageName] = useState("自建内容包");
@@ -109,6 +133,15 @@ export default function DemoConsole() {
       : selectedPreset?.name ?? "内容包";
   const activePackageDays =
     selectedPackageId === "custom" ? customPackageDays : selectedPreset?.days ?? 7;
+  const demoAccounts = brands.map((b, index) => {
+    const preset =
+      demoAccountPresets[index] ?? {
+        label: `${b.name} 运营账号`,
+        email: `brand${index + 1}@oneday.demo`,
+        password: `OneDay${index + 1}`,
+      };
+    return { ...preset, brand: b };
+  });
 
   useEffect(() => {
     const boot = async () => {
@@ -145,6 +178,36 @@ export default function DemoConsole() {
     } finally {
       setLoading(null);
     }
+  };
+
+  const login = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const account = demoAccounts.find(
+      (a) => a.email.toLowerCase() === loginEmail.trim().toLowerCase(),
+    );
+    if (!account || account.password !== loginPassword) {
+      setError("邮箱或密码不正确");
+      setEntryNotice(null);
+      return;
+    }
+    await enterBrand(account.brand);
+  };
+
+  const register = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!registerName.trim() || !registerEmail.trim() || !registerPassword.trim()) {
+      setError("请完整填写注册信息");
+      setEntryNotice(null);
+      return;
+    }
+    if (brands.length === 0) {
+      setError("演示数据准备中，请稍后再试");
+      setEntryNotice(null);
+      return;
+    }
+    setError(null);
+    setEntryNotice(null);
+    await enterBrand(brands[0]);
   };
 
   const generate = async () => {
@@ -201,7 +264,11 @@ export default function DemoConsole() {
               <button
                 key={mode}
                 type="button"
-                onClick={() => setEntryMode(mode)}
+                onClick={() => {
+                  setEntryMode(mode);
+                  setError(null);
+                  setEntryNotice(null);
+                }}
                 className={`rounded-full px-4 py-2 font-medium transition ${
                   entryMode === mode ? "bg-surface text-ink shadow-sm" : "text-ink-muted"
                 }`}
@@ -217,41 +284,126 @@ export default function DemoConsole() {
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
               {entryMode === "login"
-                ? "选择一个已绑定的品牌账号继续。"
-                : "选择一个品牌账号完成注册体验并进入工作台。"}
+                ? "输入邮箱和密码，进入已绑定的品牌工作台。"
+                : "填写账号与品牌信息，提交开通申请。"}
             </p>
           </header>
 
-        {error && (
-          <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-center text-sm text-warn">
-            {error}
-          </p>
-        )}
-        <div className="grid gap-3">
-          {brands.map((b) => (
-            <button
-              key={b.id}
-              onClick={() => void enterBrand(b)}
-              disabled={loading !== null}
-              className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 text-left transition hover:border-brand hover:shadow-sm disabled:opacity-60"
-            >
-              <span>
-                <span className="block text-sm font-bold">{b.name}</span>
-                <span className="mt-1 block text-xs text-ink-muted">
-                  {b.industry} · {b.memberCount} 名私域成员
-                </span>
-              </span>
-              <span className="text-xs text-brand">
-                {loading === b.id ? "进入中…" : entryMode === "login" ? "登录 →" : "注册并进入 →"}
-              </span>
-            </button>
-          ))}
-          {brands.length === 0 && !error && (
-            <p className="text-center text-sm text-ink-muted">
-              正在准备演示数据…
+          {error && (
+            <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-center text-sm text-warn">
+              {error}
             </p>
           )}
-        </div>
+          {entryNotice && (
+            <p className="mb-6 rounded-xl bg-brand-soft px-4 py-3 text-center text-sm text-brand">
+              {entryNotice}
+            </p>
+          )}
+
+          {entryMode === "login" ? (
+            <>
+              <form onSubmit={(event) => void login(event)} className="grid gap-4">
+                <label className="grid gap-1.5 text-sm font-medium">
+                  邮箱
+                  <input
+                    type="email"
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand"
+                    placeholder="name@company.com"
+                    autoComplete="email"
+                  />
+                </label>
+                <label className="grid gap-1.5 text-sm font-medium">
+                  密码
+                  <input
+                    type="password"
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand"
+                    placeholder="输入密码"
+                    autoComplete="current-password"
+                  />
+                </label>
+                <button
+                  type="submit"
+                  disabled={loading !== null || brands.length === 0}
+                  className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  {loading ? "登录中…" : "登录"}
+                </button>
+              </form>
+
+              <div className="mt-6 border-t border-line pt-5">
+                <p className="mb-3 text-xs font-medium text-ink-muted">测试账号</p>
+                <div className="grid gap-2">
+                  {demoAccounts.map((account) => (
+                    <button
+                      key={account.email}
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail(account.email);
+                        setLoginPassword(account.password);
+                        setError(null);
+                        setEntryNotice(null);
+                      }}
+                      className="rounded-xl border border-line bg-white px-4 py-3 text-left transition hover:border-brand"
+                    >
+                      <span className="block text-sm font-medium">{account.label}</span>
+                      <span className="mt-1 block text-xs text-ink-muted">
+                        {account.email} · 密码 {account.password}
+                      </span>
+                    </button>
+                  ))}
+                  {brands.length === 0 && !error && (
+                    <p className="text-center text-sm text-ink-muted">正在准备演示数据…</p>
+                  )}
+                </div>
+              </div>
+            </>
+          ) : (
+            <form onSubmit={register} className="grid gap-4">
+              <label className="grid gap-1.5 text-sm font-medium">
+                用户名
+                <input
+                  value={registerName}
+                  onChange={(e) => setRegisterName(e.target.value)}
+                  className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand"
+                  placeholder="请输入用户名"
+                  autoComplete="name"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                邮箱
+                <input
+                  type="email"
+                  value={registerEmail}
+                  onChange={(e) => setRegisterEmail(e.target.value)}
+                  className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand"
+                  placeholder="name@company.com"
+                  autoComplete="email"
+                />
+              </label>
+              <label className="grid gap-1.5 text-sm font-medium">
+                密码
+                <input
+                  type="password"
+                  value={registerPassword}
+                  onChange={(e) => setRegisterPassword(e.target.value)}
+                  className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal outline-none transition focus:border-brand"
+                  placeholder="设置密码"
+                  autoComplete="new-password"
+                />
+              </label>
+              <button
+                type="submit"
+                disabled={loading !== null || brands.length === 0}
+                className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              >
+                {loading ? "创建中…" : "创建账号"}
+              </button>
+            </form>
+          )}
           <footer className="mt-6 border-t border-line pt-4 text-xs text-ink-muted">
             演示环境 · 每个账号只展示绑定品牌
           </footer>
