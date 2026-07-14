@@ -53,11 +53,41 @@ interface CalendarPackage {
   days: CalendarDay[];
 }
 
+const contentPackagePresets = [
+  {
+    id: "weekly",
+    name: "7 天陪跑包",
+    days: 7,
+    goal: "新主题启动",
+    theme: "睡眠修复 · 7 天陪跑",
+  },
+  {
+    id: "activation",
+    name: "14 天降温唤醒包",
+    days: 14,
+    goal: "拉回低互动成员",
+    theme: "温和回访 · 重新连接",
+  },
+  {
+    id: "camp",
+    name: "21 天主题营包",
+    days: 21,
+    goal: "月度营期交付",
+    theme: "深度休息 · 21 天练习营",
+  },
+] as const;
+
+type ContentPackageId = (typeof contentPackagePresets)[number]["id"] | "custom";
+
 function daysAgo(iso: string, ref: string): string {
   const d = Math.floor(
     (new Date(ref).getTime() - new Date(iso).getTime()) / 86400000,
   );
   return d <= 0 ? "今天" : `${d} 天前`;
+}
+
+function demoAccountEmail(brand: Brand): string {
+  return `${brand.id.replace("brd_", "brand-")}@oneday.demo`;
 }
 
 export default function DemoConsole() {
@@ -66,9 +96,21 @@ export default function DemoConsole() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [calendar, setCalendar] = useState<CalendarPackage | null>(null);
   const [theme, setTheme] = useState("");
+  const [selectedPackageId, setSelectedPackageId] = useState<ContentPackageId>("weekly");
+  const [customPackageName, setCustomPackageName] = useState("自建内容包");
+  const [customPackageDays, setCustomPackageDays] = useState(10);
+  const [generatedPackageName, setGeneratedPackageName] = useState("");
   const [expandedLayers, setExpandedLayers] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const selectedPreset = contentPackagePresets.find((p) => p.id === selectedPackageId);
+  const activePackageName =
+    selectedPackageId === "custom"
+      ? customPackageName.trim() || "自建内容包"
+      : selectedPreset?.name ?? "内容包";
+  const activePackageDays =
+    selectedPackageId === "custom" ? customPackageDays : selectedPreset?.days ?? 7;
 
   useEffect(() => {
     const boot = async () => {
@@ -93,8 +135,12 @@ export default function DemoConsole() {
         setDashboard((await dash.json()) as Dashboard);
       }
       setBrand(b);
-      setTheme(b.defaultTheme);
+      setSelectedPackageId("weekly");
+      setTheme(contentPackagePresets[0].theme);
+      setCustomPackageName(`${b.name} 自建内容包`);
+      setCustomPackageDays(10);
       setCalendar(null);
+      setGeneratedPackageName("");
       setExpandedLayers({});
     } catch {
       setError("载入品牌数据失败");
@@ -114,11 +160,12 @@ export default function DemoConsole() {
         body: JSON.stringify({
           brandName: brand.name,
           industry: brand.industry,
-          monthTheme: theme,
-          days: 7,
+          monthTheme: `${activePackageName} · ${theme}`,
+          days: activePackageDays,
         }),
       });
       setCalendar((await res.json()) as CalendarPackage);
+      setGeneratedPackageName(activePackageName);
     } catch {
       setError("内容生成失败");
     } finally {
@@ -126,14 +173,14 @@ export default function DemoConsole() {
     }
   };
 
-  // ---------- 品牌选择页（演示登录） ----------
+  // ---------- 品牌账号登录页（演示） ----------
   if (!brand) {
     return (
       <div className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-16">
         <header className="mb-12 text-center">
           <h1 className="text-3xl font-bold">One Day 私域运营台</h1>
           <p className="mt-3 text-sm text-ink-muted">
-            AI 私域运营平台 · 演示环境 · 选择品牌进入工作台
+            AI 私域运营平台 · 演示环境 · 品牌账号登录
           </p>
         </header>
         {error && (
@@ -149,12 +196,12 @@ export default function DemoConsole() {
               disabled={loading !== null}
               className="rounded-2xl border border-line bg-surface p-6 text-left transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lg disabled:opacity-60"
             >
-              <p className="text-xs tracking-widest text-ink-muted">{b.industry}</p>
+              <p className="text-xs tracking-widest text-ink-muted">{demoAccountEmail(b)}</p>
               <h2 className="mt-2 text-lg font-bold">{b.name}</h2>
               <p className="mt-2 text-sm leading-relaxed text-ink-soft">{b.tagline}</p>
               <p className="mt-4 text-xs text-ink-muted">
                 {b.memberCount} 名私域成员 ·{" "}
-                {loading === b.id ? "载入中…" : "进入工作台 →"}
+                {loading === b.id ? "登录中…" : "登录到我的品牌 →"}
               </p>
             </button>
           ))}
@@ -165,7 +212,7 @@ export default function DemoConsole() {
           )}
         </div>
         <footer className="mt-12 text-center text-xs text-ink-muted">
-          演示环境：品牌与成员均为合成数据 · 正式版此处为品牌注册/登录
+          演示环境：每个账号只进入绑定品牌 · 品牌与成员均为合成数据
         </footer>
       </div>
     );
@@ -186,7 +233,7 @@ export default function DemoConsole() {
             </span>
           </div>
           <p className="mt-2 text-sm text-ink-muted">
-            私域运营工作台 · 演示环境（合成数据，无真实用户信息）
+            已登录：{demoAccountEmail(brand)} · 演示环境（合成数据，无真实用户信息）
           </p>
         </div>
         <button
@@ -194,11 +241,12 @@ export default function DemoConsole() {
             setBrand(null);
             setDashboard(null);
             setCalendar(null);
+            setGeneratedPackageName("");
             setExpandedLayers({});
           }}
           className="text-sm text-ink-muted transition hover:text-ink"
         >
-          切换品牌 ⇄
+          退出账号 ↩
         </button>
       </header>
 
@@ -249,7 +297,11 @@ export default function DemoConsole() {
               return (
                 <div key={title} className="rounded-2xl border border-line bg-surface p-5">
                   <h3 className="mb-3 text-sm font-medium text-ink-soft">{title}</h3>
-                  <ul className="flex flex-col gap-2">
+                  <ul
+                    className={`flex flex-col gap-2 ${
+                      isExpanded ? "max-h-72 overflow-y-auto pr-1" : ""
+                    }`}
+                  >
                     {visibleMembers.map((m) => (
                       <li key={m.alias} className="flex items-center justify-between text-sm">
                         <span>{m.displayName ?? m.alias}</span>
@@ -284,50 +336,135 @@ export default function DemoConsole() {
       )}
 
       <section>
-        <div className="mb-6 flex flex-wrap items-center gap-4">
-          <h2 className="text-lg font-bold">内容日历生成</h2>
-          <input
-            value={theme}
-            onChange={(e) => setTheme(e.target.value)}
-            className="w-64 rounded-full border border-line bg-surface px-4 py-2 text-sm outline-none focus:border-brand"
-            placeholder="本月主题"
-          />
-          <button
-            onClick={() => void generate()}
-            disabled={loading !== null}
-            className="rounded-full border border-brand px-5 py-2 text-sm font-medium text-brand transition hover:bg-brand-soft disabled:opacity-50"
-          >
-            {loading === "calendar" ? "生成中…" : `为 ${brand.name} 生成 7 天内容包`}
-          </button>
-          {calendar && (
-            <span className="text-xs text-ink-muted">
-              引擎：{calendar.generatedBy === "template" ? "模板（演示）" : calendar.generatedBy} · 已过合规护栏
-            </span>
-          )}
+        <div className="mb-6">
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold">内容包工作台</h2>
+              <p className="mt-1 text-sm text-ink-muted">
+                选择服务包模板，或为当前品牌自建内容包
+              </p>
+            </div>
+            {calendar && (
+              <span className="text-xs text-ink-muted">
+                引擎：{calendar.generatedBy === "template" ? "模板（演示）" : calendar.generatedBy} · 已过合规护栏
+              </span>
+            )}
+          </div>
+
+          <div className="mb-5 grid gap-3 md:grid-cols-4">
+            {contentPackagePresets.map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                onClick={() => {
+                  setSelectedPackageId(preset.id);
+                  setTheme(preset.theme);
+                  setCalendar(null);
+                  setGeneratedPackageName("");
+                }}
+                className={`rounded-2xl border p-4 text-left transition hover:border-brand ${
+                  selectedPackageId === preset.id
+                    ? "border-brand bg-brand-soft"
+                    : "border-line bg-surface"
+                }`}
+              >
+                <p className="text-xs text-ink-muted">{preset.goal}</p>
+                <h3 className="mt-2 text-sm font-bold">{preset.name}</h3>
+                <p className="mt-2 text-xs text-ink-muted">{preset.days} 天内容节奏</p>
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedPackageId("custom");
+                setCalendar(null);
+                setGeneratedPackageName("");
+              }}
+              className={`rounded-2xl border p-4 text-left transition hover:border-brand ${
+                selectedPackageId === "custom"
+                  ? "border-brand bg-brand-soft"
+                  : "border-line bg-surface"
+              }`}
+            >
+              <p className="text-xs text-ink-muted">订阅客户自建</p>
+              <h3 className="mt-2 text-sm font-bold">自建内容包</h3>
+              <p className="mt-2 text-xs text-ink-muted">1-31 天自由配置</p>
+            </button>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-4">
+            {selectedPackageId === "custom" && (
+              <>
+                <input
+                  value={customPackageName}
+                  onChange={(e) => setCustomPackageName(e.target.value)}
+                  className="w-48 rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
+                  placeholder="内容包名称"
+                />
+                <input
+                  type="number"
+                  min={1}
+                  max={31}
+                  value={customPackageDays}
+                  onChange={(e) => {
+                    const next = Number.parseInt(e.target.value, 10);
+                    setCustomPackageDays(Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)));
+                  }}
+                  className="w-28 rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
+                  aria-label="内容包天数"
+                />
+              </>
+            )}
+            <input
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              className="w-72 rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
+              placeholder="内容主题"
+            />
+            <button
+              onClick={() => void generate()}
+              disabled={loading !== null}
+              className="rounded-full border border-brand px-5 py-2 text-sm font-medium text-brand transition hover:bg-brand-soft disabled:opacity-50"
+            >
+              {loading === "calendar"
+                ? "生成中…"
+                : `生成 ${activePackageName}（${activePackageDays} 天）`}
+            </button>
+          </div>
         </div>
         {calendar && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {calendar.days.map((day) => (
-              <div key={day.dayIndex} className="rounded-2xl border border-line bg-surface p-5">
-                <p className="mb-3 text-xs font-medium tracking-widest text-ink-muted">
-                  DAY {day.dayIndex}
-                </p>
-                <div className="flex flex-col gap-3 text-sm leading-relaxed">
-                  <div>
-                    <p className="mb-1 text-xs text-brand">朋友圈</p>
-                    <p className="text-ink-soft">{day.momentsPost}</p>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs text-brand">群话题</p>
-                    <p className="text-ink-soft">{day.groupTopic}</p>
-                  </div>
-                  <div>
-                    <p className="mb-1 text-xs text-brand">私信话术</p>
-                    <p className="text-ink-soft">{day.dmScript}</p>
+          <div>
+            <div className="mb-4 rounded-2xl bg-brand-soft px-5 py-4">
+              <p className="text-sm font-medium text-brand">
+                {generatedPackageName || activePackageName} · {calendar.days.length} 天
+              </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                {brand.name} 专属内容包 · {calendar.monthTheme}
+              </p>
+            </div>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {calendar.days.map((day) => (
+                <div key={day.dayIndex} className="rounded-2xl border border-line bg-surface p-5">
+                  <p className="mb-3 text-xs font-medium tracking-widest text-ink-muted">
+                    DAY {day.dayIndex}
+                  </p>
+                  <div className="flex flex-col gap-3 text-sm leading-relaxed">
+                    <div>
+                      <p className="mb-1 text-xs text-brand">朋友圈</p>
+                      <p className="text-ink-soft">{day.momentsPost}</p>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs text-brand">群话题</p>
+                      <p className="text-ink-soft">{day.groupTopic}</p>
+                    </div>
+                    <div>
+                      <p className="mb-1 text-xs text-brand">私信话术</p>
+                      <p className="text-ink-soft">{day.dmScript}</p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </section>
