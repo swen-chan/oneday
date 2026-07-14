@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-// One Day 私域运营台（演示）：品牌选择（演示登录）→ 该品牌的工作台。
+// One Day 私域运营台：账号入口 → 该品牌的工作台。
 // 多租户叙事：每个品牌有自己的群数据、健康分和内容默认值。
 
 const API = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3210";
@@ -78,6 +78,7 @@ const contentPackagePresets = [
 ] as const;
 
 type ContentPackageId = (typeof contentPackagePresets)[number]["id"] | "custom";
+type EntryMode = "login" | "register";
 
 function daysAgo(iso: string, ref: string): string {
   const d = Math.floor(
@@ -86,15 +87,12 @@ function daysAgo(iso: string, ref: string): string {
   return d <= 0 ? "今天" : `${d} 天前`;
 }
 
-function demoAccountEmail(brand: Brand): string {
-  return `${brand.id.replace("brd_", "brand-")}@oneday.demo`;
-}
-
 export default function DemoConsole() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [calendar, setCalendar] = useState<CalendarPackage | null>(null);
+  const [entryMode, setEntryMode] = useState<EntryMode>("login");
   const [theme, setTheme] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState<ContentPackageId>("weekly");
   const [customPackageName, setCustomPackageName] = useState("自建内容包");
@@ -173,47 +171,91 @@ export default function DemoConsole() {
     }
   };
 
-  // ---------- 品牌账号登录页（演示） ----------
+  // ---------- 品牌账号入口 ----------
   if (!brand) {
     return (
-      <div className="mx-auto flex min-h-screen max-w-4xl flex-col justify-center px-6 py-16">
-        <header className="mb-12 text-center">
-          <h1 className="text-3xl font-bold">One Day 私域运营台</h1>
-          <p className="mt-3 text-sm text-ink-muted">
-            AI 私域运营平台 · 演示登录 · 非真实鉴权
+      <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
+        <section>
+          <p className="mb-4 text-sm font-medium text-brand">One Day 私域运营台</p>
+          <h1 className="text-4xl font-bold leading-tight">登录品牌账号，进入私域运营工作台</h1>
+          <p className="mt-5 max-w-md text-sm leading-7 text-ink-soft">
+            为大健康与疗愈品牌管理私域健康看板、互动提醒与内容包生成。每个账号进入后只看到绑定品牌的数据。
           </p>
-        </header>
+          <div className="mt-8 grid max-w-md grid-cols-3 gap-3 text-center">
+            {["健康看板", "互动提醒", "内容包"].map((label) => (
+              <div key={label} className="rounded-2xl border border-line bg-surface px-3 py-4">
+                <p className="text-sm font-medium">{label}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <main className="rounded-3xl border border-line bg-surface p-6 shadow-sm">
+          <div className="mb-6 grid grid-cols-2 rounded-full bg-bg p-1 text-sm">
+            {(
+              [
+                ["login", "登录"],
+                ["register", "注册"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setEntryMode(mode)}
+                className={`rounded-full px-4 py-2 font-medium transition ${
+                  entryMode === mode ? "bg-surface text-ink shadow-sm" : "text-ink-muted"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <header className="mb-6">
+            <h2 className="text-xl font-bold">
+              {entryMode === "login" ? "登录 One Day" : "注册品牌账号"}
+            </h2>
+            <p className="mt-2 text-sm text-ink-muted">
+              {entryMode === "login"
+                ? "选择一个已绑定的品牌账号继续。"
+                : "选择一个品牌账号完成注册体验并进入工作台。"}
+            </p>
+          </header>
+
         {error && (
           <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-center text-sm text-warn">
             {error}
           </p>
         )}
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-3">
           {brands.map((b) => (
             <button
               key={b.id}
               onClick={() => void enterBrand(b)}
               disabled={loading !== null}
-              className="rounded-2xl border border-line bg-surface p-6 text-left transition hover:-translate-y-0.5 hover:border-brand hover:shadow-lg disabled:opacity-60"
+              className="flex items-center justify-between rounded-2xl border border-line bg-white p-4 text-left transition hover:border-brand hover:shadow-sm disabled:opacity-60"
             >
-              <p className="text-xs tracking-widest text-ink-muted">{demoAccountEmail(b)}</p>
-              <h2 className="mt-2 text-lg font-bold">{b.name}</h2>
-              <p className="mt-2 text-sm leading-relaxed text-ink-soft">{b.tagline}</p>
-              <p className="mt-4 text-xs text-ink-muted">
-                {b.memberCount} 名私域成员 ·{" "}
-                {loading === b.id ? "登录中…" : "登录到我的品牌 →"}
-              </p>
+              <span>
+                <span className="block text-sm font-bold">{b.name}</span>
+                <span className="mt-1 block text-xs text-ink-muted">
+                  {b.industry} · {b.memberCount} 名私域成员
+                </span>
+              </span>
+              <span className="text-xs text-brand">
+                {loading === b.id ? "进入中…" : entryMode === "login" ? "登录 →" : "注册并进入 →"}
+              </span>
             </button>
           ))}
           {brands.length === 0 && !error && (
-            <p className="col-span-3 text-center text-sm text-ink-muted">
+            <p className="text-center text-sm text-ink-muted">
               正在准备演示数据…
             </p>
           )}
         </div>
-        <footer className="mt-12 text-center text-xs text-ink-muted">
-          演示环境：每个账号只展示绑定品牌 · 非真实鉴权 · 品牌与成员均为合成数据
-        </footer>
+          <footer className="mt-6 border-t border-line pt-4 text-xs text-ink-muted">
+            演示环境 · 每个账号只展示绑定品牌
+          </footer>
+        </main>
       </div>
     );
   }
@@ -232,9 +274,6 @@ export default function DemoConsole() {
               {brand.industry}
             </span>
           </div>
-          <p className="mt-2 text-sm text-ink-muted">
-            演示登录：{demoAccountEmail(brand)} · 非真实鉴权 · 合成数据无真实用户信息
-          </p>
         </div>
         <button
           onClick={() => {
