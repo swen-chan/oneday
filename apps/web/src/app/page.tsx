@@ -180,7 +180,7 @@ export default function DemoConsole() {
         <header className="mb-12 text-center">
           <h1 className="text-3xl font-bold">One Day 私域运营台</h1>
           <p className="mt-3 text-sm text-ink-muted">
-            AI 私域运营平台 · 演示环境 · 品牌账号登录
+            AI 私域运营平台 · 演示登录 · 非真实鉴权
           </p>
         </header>
         {error && (
@@ -212,7 +212,7 @@ export default function DemoConsole() {
           )}
         </div>
         <footer className="mt-12 text-center text-xs text-ink-muted">
-          演示环境：每个账号只进入绑定品牌 · 品牌与成员均为合成数据
+          演示环境：每个账号只展示绑定品牌 · 非真实鉴权 · 品牌与成员均为合成数据
         </footer>
       </div>
     );
@@ -233,7 +233,7 @@ export default function DemoConsole() {
             </span>
           </div>
           <p className="mt-2 text-sm text-ink-muted">
-            已登录：{demoAccountEmail(brand)} · 演示环境（合成数据，无真实用户信息）
+            演示登录：{demoAccountEmail(brand)} · 非真实鉴权 · 合成数据无真实用户信息
           </p>
         </div>
         <button
@@ -470,7 +470,7 @@ export default function DemoConsole() {
       </section>
 
       <footer className="mt-16 border-t border-line pt-6 text-xs text-ink-muted">
-        演示环境 · 品牌与成员均为确定性合成数据 · AI 输出经医疗宣称护栏过滤 · 多租户：每个品牌只见自己的数据
+        演示环境 · 品牌与成员均为确定性合成数据 · AI 输出经医疗宣称护栏过滤 · 真实授权/租户隔离将在接真实数据前实现
       </footer>
     </div>
   );
