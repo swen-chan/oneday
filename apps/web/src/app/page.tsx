@@ -111,8 +111,8 @@ export default function DemoConsole() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [calendar, setCalendar] = useState<CalendarPackage | null>(null);
   const [entryMode, setEntryMode] = useState<EntryMode>("login");
-  const [loginEmail, setLoginEmail] = useState<string>(demoAccountPresets[0].email);
-  const [loginPassword, setLoginPassword] = useState<string>(demoAccountPresets[0].password);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
   const [registerName, setRegisterName] = useState("");
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
