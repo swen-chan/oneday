@@ -334,32 +334,6 @@ export default function DemoConsole() {
                 </button>
               </form>
 
-              <div className="mt-6 border-t border-line pt-5">
-                <p className="mb-3 text-xs font-medium text-ink-muted">测试账号</p>
-                <div className="grid gap-2">
-                  {demoAccounts.map((account) => (
-                    <button
-                      key={account.email}
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail(account.email);
-                        setLoginPassword(account.password);
-                        setError(null);
-                        setEntryNotice(null);
-                      }}
-                      className="rounded-xl border border-line bg-white px-4 py-3 text-left transition hover:border-brand"
-                    >
-                      <span className="block text-sm font-medium">{account.label}</span>
-                      <span className="mt-1 block text-xs text-ink-muted">
-                        {account.email} · 密码 {account.password}
-                      </span>
-                    </button>
-                  ))}
-                  {brands.length === 0 && !error && (
-                    <p className="text-center text-sm text-ink-muted">正在准备演示数据…</p>
-                  )}
-                </div>
-              </div>
             </>
           ) : (
             <form onSubmit={register} className="grid gap-4">
