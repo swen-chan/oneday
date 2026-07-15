@@ -77,6 +77,8 @@ const contentPackagePresets = [
   },
 ] as const;
 
+const contentDayOptions = [3, 7, 14, 30] as const;
+
 type ContentPackageId = (typeof contentPackagePresets)[number]["id"] | "custom";
 type EntryMode = "login" | "register";
 type ContentField = "momentsPost" | "groupTopic" | "dmScript";
@@ -169,7 +171,7 @@ export default function DemoConsole() {
   const [selectedToneId, setSelectedToneId] = useState<ContentToneId>("warm");
   const [selectedChannelId, setSelectedChannelId] = useState<ContentChannelId>("all");
   const [customPackageName, setCustomPackageName] = useState("自建内容包");
-  const [customPackageDays, setCustomPackageDays] = useState(10);
+  const [customPackageDays, setCustomPackageDays] = useState(7);
   const [generatedPackageName, setGeneratedPackageName] = useState("");
   const [expandedLayers, setExpandedLayers] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState<string | null>(null);
@@ -182,6 +184,7 @@ export default function DemoConsole() {
       : selectedPreset?.name ?? "内容包";
   const activePackageDays =
     selectedPackageId === "custom" ? customPackageDays : selectedPreset?.days ?? 7;
+  const usesPresetDayOption = contentDayOptions.some((day) => day === activePackageDays);
   const activeTone =
     contentToneOptions.find((tone) => tone.id === selectedToneId) ?? contentToneOptions[0];
   const activeChannel =
@@ -611,7 +614,7 @@ export default function DemoConsole() {
             >
               <p className="text-xs text-ink-muted">订阅客户自建</p>
               <h3 className="mt-2 text-sm font-bold">自建内容包</h3>
-              <p className="mt-2 text-xs text-ink-muted">1-31 天自由配置</p>
+              <p className="mt-2 text-xs text-ink-muted">预设天数 + 自定义</p>
             </button>
           </div>
 
@@ -619,8 +622,8 @@ export default function DemoConsole() {
             <div
               className={`grid gap-3 ${
                 selectedPackageId === "custom"
-                  ? "lg:grid-cols-[1fr_1.35fr_8.5rem]"
-                  : "lg:grid-cols-[1fr_8.5rem]"
+                  ? "lg:grid-cols-[1fr_1.15fr_1.7fr]"
+                  : "lg:grid-cols-[1fr_1.7fr]"
               }`}
             >
               {selectedPackageId === "custom" && (
@@ -643,29 +646,60 @@ export default function DemoConsole() {
                   placeholder="如：睡眠修复"
                 />
               </label>
-              <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
-                天数
-                <span className="flex items-center rounded-full border border-line bg-white px-3 focus-within:border-brand">
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
-                    value={activePackageDays}
-                    onChange={(e) => {
-                      const next = Number.parseInt(e.target.value, 10);
-                      setSelectedPackageId("custom");
-                      setCustomPackageDays(
-                        Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)),
-                      );
-                      setCalendar(null);
-                      setGeneratedPackageName("");
-                    }}
-                    className="min-w-0 flex-1 bg-transparent py-2 text-sm font-normal text-ink outline-none"
-                    aria-label="内容包天数"
-                  />
-                  <span className="ml-1 text-xs text-ink-muted">天</span>
+              <div className="grid gap-1.5 text-xs font-medium text-ink-muted">
+                <p>天数</p>
+                <span className="flex flex-wrap gap-2">
+                  {contentDayOptions.map((day) => (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPackageId("custom");
+                        setCustomPackageDays(day);
+                        setCalendar(null);
+                        setGeneratedPackageName("");
+                      }}
+                      className={`rounded-full border px-3 py-2 text-xs font-medium transition hover:border-brand ${
+                        activePackageDays === day
+                          ? "border-brand bg-brand-soft text-brand"
+                          : "border-line bg-white text-ink-muted"
+                      }`}
+                    >
+                      {day} 天
+                    </button>
+                  ))}
+                  <span
+                    className={`flex items-center rounded-full border px-3 text-xs font-medium transition focus-within:border-brand ${
+                      selectedPackageId === "custom" && !usesPresetDayOption
+                        ? "border-brand bg-brand-soft text-brand"
+                        : "border-line bg-white text-ink-muted"
+                    }`}
+                  >
+                    自定义
+                    <input
+                      type="number"
+                      min={1}
+                      max={31}
+                      value={activePackageDays}
+                      onChange={(e) => {
+                        const next = Number.parseInt(e.target.value, 10);
+                        setSelectedPackageId("custom");
+                        setCustomPackageDays(
+                          Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)),
+                        );
+                        setCalendar(null);
+                        setGeneratedPackageName("");
+                      }}
+                      onFocus={() => {
+                        setSelectedPackageId("custom");
+                      }}
+                      className="ml-2 w-11 bg-transparent py-2 text-center text-xs font-medium text-ink outline-none"
+                      aria-label="自定义内容包天数"
+                    />
+                    <span className="ml-1">天</span>
+                  </span>
                 </span>
-              </label>
+              </div>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
@@ -725,9 +759,7 @@ export default function DemoConsole() {
               disabled={loading !== null}
               className="w-full rounded-full border border-brand px-5 py-2 text-sm font-medium text-brand transition hover:bg-brand-soft disabled:opacity-50"
             >
-              {loading === "calendar"
-                ? "生成中…"
-                : `生成 ${activePackageName}（${activePackageDays} 天 · ${activeTone.label} · ${activeChannel.label}）`}
+              {loading === "calendar" ? "生成中…" : `生成 ${activePackageDays} 天内容包`}
             </button>
           </div>
         </div>
