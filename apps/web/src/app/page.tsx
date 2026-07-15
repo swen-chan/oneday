@@ -79,6 +79,53 @@ const contentPackagePresets = [
 
 type ContentPackageId = (typeof contentPackagePresets)[number]["id"] | "custom";
 type EntryMode = "login" | "register";
+type ContentField = "momentsPost" | "groupTopic" | "dmScript";
+
+const contentToneOptions = [
+  { id: "warm", label: "温柔陪伴", prompt: "温柔陪伴语气" },
+  { id: "calm", label: "专业克制", prompt: "专业克制语气" },
+  { id: "light", label: "轻松日常", prompt: "轻松日常语气" },
+] as const;
+
+const contentChannelOptions = [
+  {
+    id: "all",
+    label: "全渠道",
+    hint: "朋友圈 / 群 / 私信",
+    prompt: "朋友圈、群话题、私信三渠道",
+    fields: ["momentsPost", "groupTopic", "dmScript"] as const,
+  },
+  {
+    id: "moments",
+    label: "朋友圈",
+    hint: "公开种草",
+    prompt: "朋友圈单渠道",
+    fields: ["momentsPost"] as const,
+  },
+  {
+    id: "group",
+    label: "群话题",
+    hint: "社群互动",
+    prompt: "社群话题单渠道",
+    fields: ["groupTopic"] as const,
+  },
+  {
+    id: "dm",
+    label: "私信",
+    hint: "一对一触达",
+    prompt: "私信触达单渠道",
+    fields: ["dmScript"] as const,
+  },
+] as const;
+
+type ContentToneId = (typeof contentToneOptions)[number]["id"];
+type ContentChannelId = (typeof contentChannelOptions)[number]["id"];
+
+const contentFieldLabels: Record<ContentField, string> = {
+  momentsPost: "朋友圈",
+  groupTopic: "群话题",
+  dmScript: "私信话术",
+};
 
 const demoAccountPresets = [
   {
@@ -119,6 +166,8 @@ export default function DemoConsole() {
   const [entryNotice, setEntryNotice] = useState<string | null>(null);
   const [theme, setTheme] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState<ContentPackageId>("weekly");
+  const [selectedToneId, setSelectedToneId] = useState<ContentToneId>("warm");
+  const [selectedChannelId, setSelectedChannelId] = useState<ContentChannelId>("all");
   const [customPackageName, setCustomPackageName] = useState("自建内容包");
   const [customPackageDays, setCustomPackageDays] = useState(10);
   const [generatedPackageName, setGeneratedPackageName] = useState("");
@@ -133,6 +182,11 @@ export default function DemoConsole() {
       : selectedPreset?.name ?? "内容包";
   const activePackageDays =
     selectedPackageId === "custom" ? customPackageDays : selectedPreset?.days ?? 7;
+  const activeTone =
+    contentToneOptions.find((tone) => tone.id === selectedToneId) ?? contentToneOptions[0];
+  const activeChannel =
+    contentChannelOptions.find((channel) => channel.id === selectedChannelId) ??
+    contentChannelOptions[0];
   const demoAccounts = brands.map((b, index) => {
     const preset =
       demoAccountPresets[index] ?? {
@@ -167,6 +221,8 @@ export default function DemoConsole() {
       }
       setBrand(b);
       setSelectedPackageId("weekly");
+      setSelectedToneId("warm");
+      setSelectedChannelId("all");
       setTheme(contentPackagePresets[0].theme);
       setCustomPackageName(`${b.name} 自建内容包`);
       setCustomPackageDays(10);
@@ -221,7 +277,9 @@ export default function DemoConsole() {
         body: JSON.stringify({
           brandName: brand.name,
           industry: brand.industry,
-          monthTheme: `${activePackageName} · ${theme}`,
+          monthTheme: `${activePackageName} · ${theme || brand.defaultTheme} · ${
+            activeTone.prompt
+          } · ${activeChannel.prompt}`,
           days: activePackageDays,
         }),
       });
@@ -557,43 +615,99 @@ export default function DemoConsole() {
             </button>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface p-4">
-            {selectedPackageId === "custom" && (
-              <>
+          <div className="grid gap-4 rounded-2xl border border-line bg-surface p-4">
+            <div className="grid gap-3 lg:grid-cols-[1fr_120px]">
+              {selectedPackageId === "custom" && (
                 <input
                   value={customPackageName}
                   onChange={(e) => setCustomPackageName(e.target.value)}
-                  className="w-48 rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
+                  className="rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
                   placeholder="内容包名称"
                 />
-                <input
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={customPackageDays}
-                  onChange={(e) => {
-                    const next = Number.parseInt(e.target.value, 10);
-                    setCustomPackageDays(Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)));
-                  }}
-                  className="w-28 rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
-                  aria-label="内容包天数"
-                />
-              </>
-            )}
-            <input
-              value={theme}
-              onChange={(e) => setTheme(e.target.value)}
-              className="w-72 rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
-              placeholder="内容主题"
-            />
+              )}
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={activePackageDays}
+                onChange={(e) => {
+                  const next = Number.parseInt(e.target.value, 10);
+                  setSelectedPackageId("custom");
+                  setCustomPackageDays(Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)));
+                  setCalendar(null);
+                  setGeneratedPackageName("");
+                }}
+                className="rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
+                aria-label="内容包天数"
+              />
+              <input
+                value={theme}
+                onChange={(e) => setTheme(e.target.value)}
+                className="rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand lg:col-span-2"
+                placeholder="内容主题"
+              />
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-2">
+              <div>
+                <p className="mb-2 text-xs font-medium text-ink-muted">语气</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {contentToneOptions.map((tone) => (
+                    <button
+                      key={tone.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedToneId(tone.id);
+                        setCalendar(null);
+                        setGeneratedPackageName("");
+                      }}
+                      className={`rounded-full border px-3 py-2 text-xs font-medium transition hover:border-brand ${
+                        selectedToneId === tone.id
+                          ? "border-brand bg-brand-soft text-brand"
+                          : "border-line bg-white text-ink-muted"
+                      }`}
+                    >
+                      {tone.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="mb-2 text-xs font-medium text-ink-muted">渠道</p>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {contentChannelOptions.map((channel) => (
+                    <button
+                      key={channel.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedChannelId(channel.id);
+                        setCalendar(null);
+                        setGeneratedPackageName("");
+                      }}
+                      className={`rounded-xl border px-3 py-2 text-left transition hover:border-brand ${
+                        selectedChannelId === channel.id
+                          ? "border-brand bg-brand-soft"
+                          : "border-line bg-white"
+                      }`}
+                    >
+                      <span className="block text-xs font-medium">{channel.label}</span>
+                      <span className="mt-0.5 block text-[11px] text-ink-muted">
+                        {channel.hint}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <button
               onClick={() => void generate()}
               disabled={loading !== null}
-              className="rounded-full border border-brand px-5 py-2 text-sm font-medium text-brand transition hover:bg-brand-soft disabled:opacity-50"
+              className="w-full rounded-full border border-brand px-5 py-2 text-sm font-medium text-brand transition hover:bg-brand-soft disabled:opacity-50"
             >
               {loading === "calendar"
                 ? "生成中…"
-                : `生成 ${activePackageName}（${activePackageDays} 天）`}
+                : `生成 ${activePackageName}（${activePackageDays} 天 · ${activeTone.label} · ${activeChannel.label}）`}
             </button>
           </div>
         </div>
@@ -606,6 +720,9 @@ export default function DemoConsole() {
               <p className="mt-1 text-xs text-ink-muted">
                 {brand.name} 专属内容包 · {calendar.monthTheme}
               </p>
+              <p className="mt-1 text-xs text-ink-muted">
+                输出渠道：{activeChannel.hint} · 语气：{activeTone.label}
+              </p>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {calendar.days.map((day) => (
@@ -614,18 +731,12 @@ export default function DemoConsole() {
                     DAY {day.dayIndex}
                   </p>
                   <div className="flex flex-col gap-3 text-sm leading-relaxed">
-                    <div>
-                      <p className="mb-1 text-xs text-brand">朋友圈</p>
-                      <p className="text-ink-soft">{day.momentsPost}</p>
-                    </div>
-                    <div>
-                      <p className="mb-1 text-xs text-brand">群话题</p>
-                      <p className="text-ink-soft">{day.groupTopic}</p>
-                    </div>
-                    <div>
-                      <p className="mb-1 text-xs text-brand">私信话术</p>
-                      <p className="text-ink-soft">{day.dmScript}</p>
-                    </div>
+                    {(activeChannel.fields as readonly ContentField[]).map((field) => (
+                      <div key={field}>
+                        <p className="mb-1 text-xs text-brand">{contentFieldLabels[field]}</p>
+                        <p className="text-ink-soft">{day[field]}</p>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
