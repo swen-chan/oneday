@@ -615,37 +615,57 @@ export default function DemoConsole() {
             </button>
           </div>
 
-          <div className="grid gap-4 rounded-2xl border border-line bg-surface p-4">
-            <div className="grid gap-3 lg:grid-cols-[1fr_120px]">
+          <div className="grid gap-3 rounded-2xl border border-line bg-surface p-4">
+            <div
+              className={`grid gap-3 ${
+                selectedPackageId === "custom"
+                  ? "lg:grid-cols-[1fr_1.35fr_8.5rem]"
+                  : "lg:grid-cols-[1fr_8.5rem]"
+              }`}
+            >
               {selectedPackageId === "custom" && (
-                <input
-                  value={customPackageName}
-                  onChange={(e) => setCustomPackageName(e.target.value)}
-                  className="rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
-                  placeholder="内容包名称"
-                />
+                <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
+                  内容包名称
+                  <input
+                    value={customPackageName}
+                    onChange={(e) => setCustomPackageName(e.target.value)}
+                    className="rounded-full border border-line bg-white px-4 py-2 text-sm font-normal text-ink outline-none focus:border-brand"
+                    placeholder="如：私域唤醒包"
+                  />
+                </label>
               )}
-              <input
-                type="number"
-                min={1}
-                max={31}
-                value={activePackageDays}
-                onChange={(e) => {
-                  const next = Number.parseInt(e.target.value, 10);
-                  setSelectedPackageId("custom");
-                  setCustomPackageDays(Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)));
-                  setCalendar(null);
-                  setGeneratedPackageName("");
-                }}
-                className="rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand"
-                aria-label="内容包天数"
-              />
-              <input
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                className="rounded-full border border-line bg-white px-4 py-2 text-sm outline-none focus:border-brand lg:col-span-2"
-                placeholder="内容主题"
-              />
+              <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
+                内容主题
+                <input
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value)}
+                  className="rounded-full border border-line bg-white px-4 py-2 text-sm font-normal text-ink outline-none focus:border-brand"
+                  placeholder="如：睡眠修复"
+                />
+              </label>
+              <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
+                天数
+                <span className="flex items-center rounded-full border border-line bg-white px-3 focus-within:border-brand">
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={activePackageDays}
+                    onChange={(e) => {
+                      const next = Number.parseInt(e.target.value, 10);
+                      setSelectedPackageId("custom");
+                      setCustomPackageDays(
+                        Number.isNaN(next) ? 1 : Math.min(31, Math.max(1, next)),
+                      );
+                      setCalendar(null);
+                      setGeneratedPackageName("");
+                    }}
+                    className="min-w-0 flex-1 bg-transparent py-2 text-sm font-normal text-ink outline-none"
+                    aria-label="内容包天数"
+                  />
+                  <span className="ml-1 text-xs text-ink-muted">天</span>
+                </span>
+              </label>
             </div>
 
             <div className="grid gap-3 lg:grid-cols-2">
