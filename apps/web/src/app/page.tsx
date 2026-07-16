@@ -143,7 +143,7 @@ const contentFieldLabels: Record<ContentField, string> = {
   dmScript: "私信话术",
 };
 
-const demoPasswordDigest = "2ac93d44";
+const demoPasswordDigest = "186bf572";
 
 function digestDemoPassword(value: string) {
   let hash = 2166136261;
