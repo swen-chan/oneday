@@ -843,9 +843,6 @@ export function RoleRoutedDemo({
             <span className="block">今天怎样度过，</span>
             <span className="block">一生便怎样展开。</span>
           </h1>
-          <p className="mt-5 max-w-md text-sm leading-7 text-ink-soft">
-            登录 One Day，进入你的品牌运营台或会员空间。
-          </p>
           <div className="mt-8 grid max-w-md grid-cols-3 gap-3 text-center">
             {["健康看板", "互动提醒", "内容包"].map((label) => (
               <div key={label} className="rounded-2xl border border-line bg-surface px-3 py-4">
