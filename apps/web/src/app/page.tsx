@@ -836,15 +836,27 @@ export function RoleRoutedDemo({
   // ---------- 品牌账号入口 ----------
   if (!brand) {
     return (
-      <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
-        <section>
-          <h1 className="text-4xl font-bold leading-tight">
-            <span className="block">今天怎样度过，</span>
-            <span className="block">一生便怎样展开。</span>
+      <div className="relative mx-auto grid min-h-screen max-w-7xl items-center gap-12 overflow-hidden px-6 pb-12 pt-28 lg:grid-cols-[1.15fr_0.85fr] lg:gap-20 lg:px-10 lg:pb-12 lg:pt-32">
+        <header className="absolute left-6 top-8 lg:left-10 lg:top-12">
+          <p className="text-xl font-semibold tracking-[0.08em] text-ink">One Day</p>
+        </header>
+
+        <section className="relative isolate py-8 sm:py-12 lg:py-0 lg:pl-6">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-24 top-1/2 -z-10 h-[26rem] w-[32rem] -translate-y-1/2 rounded-full bg-[radial-gradient(circle_at_center,rgba(78,125,111,0.13),rgba(237,243,241,0.38)_42%,transparent_72%)] blur-2xl"
+          />
+          <h1 className="max-w-3xl font-semibold tracking-[0.02em]">
+            <span className="block whitespace-nowrap text-[clamp(2.25rem,10.5vw,3rem)] leading-[1.18] text-ink lg:text-[clamp(2.75rem,4.4vw,3.5rem)]">
+              今天怎样度过，
+            </span>
+            <span className="mt-3 block whitespace-nowrap text-[clamp(2rem,10.7vw,2.875rem)] leading-[1.14] text-brand sm:pl-[0.5em] lg:text-[clamp(3rem,5vw,4.25rem)]">
+              一生便怎样展开。
+            </span>
           </h1>
         </section>
 
-        <main className="rounded-3xl border border-line bg-surface p-6 shadow-sm">
+        <main className="w-full max-w-xl justify-self-end rounded-3xl border border-line bg-surface p-6 shadow-sm">
           <div className="mb-6 grid grid-cols-2 rounded-full bg-bg p-1 text-sm">
             {(
               [
@@ -868,17 +880,6 @@ export function RoleRoutedDemo({
               </button>
             ))}
           </div>
-
-          <header className="mb-6">
-            <h2 className="text-xl font-bold">
-              {entryMode === "login" ? "登录 One Day" : "注册 One Day 账号"}
-            </h2>
-            <p className="mt-2 text-sm text-ink-muted">
-              {entryMode === "login"
-                ? "输入邮箱和密码，系统会按账号角色进入对应工作区。"
-                : "填写账号信息，创建后先进入品牌运营台。"}
-            </p>
-          </header>
 
           {error && (
             <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-center text-sm text-warn">
@@ -969,9 +970,6 @@ export function RoleRoutedDemo({
               </button>
             </form>
           )}
-          <footer className="mt-6 border-t border-line pt-4 text-xs text-ink-muted">
-            One Day · 统一账号入口 · 按角色进入对应工作区
-          </footer>
         </main>
       </div>
     );
