@@ -1,5 +1,7 @@
-export const memberProgramVersion = 1 as const;
-export const memberProgramStoragePrefix = "oneday-member-program-v1";
+export const memberProgramVersion = 2 as const;
+export const memberJourneyLength = 7 as const;
+export const memberProgramStoragePrefix = "oneday-member-program-v2";
+export const legacyMemberProgramStoragePrefix = "oneday-member-program-v1";
 export const demoSessionStorageKey = "oneday-demo-role-session";
 
 export const concernOptions = [
@@ -48,6 +50,7 @@ export interface MemberPlan {
 
 export interface MemberCheckinSummary {
   day: number;
+  dateKey: string;
   completedTaskIds: string[];
   blockerProvided: boolean;
   feedbackFocusProvided: boolean;
@@ -57,9 +60,21 @@ export interface MemberProgramState {
   version: typeof memberProgramVersion;
   assessment: MemberAssessment;
   plan: MemberPlan;
-  completedDays: number;
+  startedOn: string;
+  demoDayOffset: number;
+  draftDateKey?: string;
   draftCompletedTaskIds: string[];
-  lastCheckin?: MemberCheckinSummary;
+  checkins: MemberCheckinSummary[];
+}
+
+export type MemberJourneyDayStatus = "recorded" | "missed" | "today" | "locked";
+
+export interface MemberJourneyDay {
+  day: number;
+  dateKey: string;
+  status: MemberJourneyDayStatus;
+  isToday: boolean;
+  checkin?: MemberCheckinSummary;
 }
 
 export interface DemoSessionLike {
@@ -233,12 +248,12 @@ export function createMemberPlan(assessment: MemberAssessment): MemberPlan {
     internal: [
       taskWithContext(`concern-${assessment.concern}-internal`, `当前困扰：${concernLabel}`, concernPair.internal),
       taskWithContext(`state-${assessment.state}-internal`, `当前状态：${stateLabel}`, statePair.internal),
-      taskWithContext(`goal-${assessment.goal}-internal`, `14 天目标：${goalLabel}`, goalPair.internal),
+      taskWithContext(`goal-${assessment.goal}-internal`, `7 天目标：${goalLabel}`, goalPair.internal),
     ],
     external: [
       taskWithContext(`concern-${assessment.concern}-external`, `当前困扰：${concernLabel}`, concernPair.external),
       taskWithContext(`state-${assessment.state}-external`, `当前状态：${stateLabel}`, statePair.external),
-      taskWithContext(`goal-${assessment.goal}-external`, `14 天目标：${goalLabel}`, goalPair.external),
+      taskWithContext(`goal-${assessment.goal}-external`, `7 天目标：${goalLabel}`, goalPair.external),
     ],
     rationale: [
       `从“${concernLabel}”出发，先安排一个可以收口当前困扰的动作。`,
@@ -248,13 +263,65 @@ export function createMemberPlan(assessment: MemberAssessment): MemberPlan {
   };
 }
 
-export function createMemberProgramState(assessment: MemberAssessment): MemberProgramState {
+export function memberDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function isMemberDateKey(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return memberDateKey(date) === value;
+}
+
+export function addMemberDays(dateKey: string, days: number) {
+  if (!isMemberDateKey(dateKey)) return dateKey;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + days);
+  return memberDateKey(date);
+}
+
+export function memberDayDistance(fromDateKey: string, toDateKey: string) {
+  if (!isMemberDateKey(fromDateKey) || !isMemberDateKey(toDateKey)) return 0;
+  const [fromYear, fromMonth, fromDay] = fromDateKey.split("-").map(Number);
+  const [toYear, toMonth, toDay] = toDateKey.split("-").map(Number);
+  return Math.round(
+    (Date.UTC(toYear, toMonth - 1, toDay) - Date.UTC(fromYear, fromMonth - 1, fromDay)) /
+      86_400_000,
+  );
+}
+
+export function memberJourneyDayNumber(startedOn: string, dateKey: string) {
+  return memberDayDistance(startedOn, dateKey) + 1;
+}
+
+export function formatMemberDate(dateKey: string) {
+  if (!isMemberDateKey(dateKey)) return dateKey;
+  const [year, month, day] = dateKey.split("-").map(Number);
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
+export function createMemberProgramState(
+  assessment: MemberAssessment,
+  startedOn = memberDateKey(),
+): MemberProgramState {
+  const safeStartedOn = isMemberDateKey(startedOn) ? startedOn : memberDateKey();
   return {
     version: memberProgramVersion,
     assessment,
     plan: createMemberPlan(assessment),
-    completedDays: 0,
+    startedOn: safeStartedOn,
+    demoDayOffset: 0,
     draftCompletedTaskIds: [],
+    checkins: [],
   };
 }
 
@@ -266,13 +333,68 @@ function knownTaskIds(program: MemberProgramState) {
   return new Set(allMemberTasks(program).map((task) => task.id));
 }
 
+export function memberEffectiveTodayDateKey(program: MemberProgramState, today = memberDateKey()) {
+  return addMemberDays(today, program.demoDayOffset);
+}
+
+export function memberCheckinForDate(program: MemberProgramState, dateKey: string) {
+  return program.checkins.find((checkin) => checkin.dateKey === dateKey);
+}
+
+export function latestMemberCheckin(program: MemberProgramState) {
+  return [...program.checkins].sort((left, right) => right.day - left.day)[0];
+}
+
+export function memberCompletedDays(program: MemberProgramState) {
+  return program.checkins.length;
+}
+
+export function memberJourneyDays(
+  program: MemberProgramState,
+  todayDateKey = memberEffectiveTodayDateKey(program),
+): MemberJourneyDay[] {
+  return Array.from({ length: memberJourneyLength }, (_, index) => {
+    const day = index + 1;
+    const dateKey = addMemberDays(program.startedOn, index);
+    const checkin = memberCheckinForDate(program, dateKey);
+    const isToday = dateKey === todayDateKey;
+    const status: MemberJourneyDayStatus = checkin
+      ? "recorded"
+      : isToday
+        ? "today"
+        : dateKey < todayDateKey
+          ? "missed"
+          : "locked";
+    return { day, dateKey, status, isToday, checkin };
+  });
+}
+
+export function canSubmitMemberCheckin(
+  program: MemberProgramState,
+  todayDateKey = memberEffectiveTodayDateKey(program),
+) {
+  const day = memberJourneyDayNumber(program.startedOn, todayDateKey);
+  return (
+    day >= 1 &&
+    day <= memberJourneyLength &&
+    !memberCheckinForDate(program, todayDateKey)
+  );
+}
+
+export function memberCheckinDraftForDate(program: MemberProgramState, dateKey: string) {
+  return program.draftDateKey === dateKey ? program.draftCompletedTaskIds : [];
+}
+
 export function updateMemberCheckinDraft(
   program: MemberProgramState,
   completedTaskIds: string[],
+  dateKey = memberEffectiveTodayDateKey(program),
 ): MemberProgramState {
+  if (!canSubmitMemberCheckin(program, dateKey)) return program;
   const knownIds = knownTaskIds(program);
   return {
     ...program,
+    draftDateKey: dateKey,
     draftCompletedTaskIds: [...new Set(completedTaskIds)].filter((id) => knownIds.has(id)),
   };
 }
@@ -282,25 +404,58 @@ export function completeMemberCheckin(
   completedTaskIds: string[],
   blockerProvided: boolean,
   feedbackFocusProvided: boolean,
+  dateKey = memberEffectiveTodayDateKey(program),
 ): MemberProgramState {
+  if (!canSubmitMemberCheckin(program, dateKey)) return program;
   const knownIds = knownTaskIds(program);
   const safeTaskIds = [...new Set(completedTaskIds)].filter((id) => knownIds.has(id));
-  const day = program.lastCheckin?.day ?? Math.min(program.completedDays + 1, 14);
+  const day = memberJourneyDayNumber(program.startedOn, dateKey);
+  const checkin: MemberCheckinSummary = {
+    day,
+    dateKey,
+    completedTaskIds: safeTaskIds,
+    blockerProvided,
+    feedbackFocusProvided,
+  };
   return {
     ...program,
-    completedDays: Math.max(program.completedDays, day),
+    draftDateKey: undefined,
     draftCompletedTaskIds: [],
-    lastCheckin: {
-      day,
-      completedTaskIds: safeTaskIds,
-      blockerProvided,
-      feedbackFocusProvided,
-    },
+    checkins: [...program.checkins, checkin].sort((left, right) => left.day - right.day),
   };
 }
 
-export function buildMemberFeedback(program: MemberProgramState) {
-  const checkin = program.lastCheckin;
+export function advanceMemberDemoDay(
+  program: MemberProgramState,
+  todayDateKey = memberDateKey(),
+): MemberProgramState {
+  const currentDay = memberJourneyDayNumber(
+    program.startedOn,
+    memberEffectiveTodayDateKey(program, todayDateKey),
+  );
+  if (currentDay >= memberJourneyLength) return program;
+  return {
+    ...program,
+    demoDayOffset: Math.min(memberJourneyLength - 1, program.demoDayOffset + 1),
+    draftDateKey: undefined,
+    draftCompletedTaskIds: [],
+  };
+}
+
+export function resetMemberDemoDay(program: MemberProgramState): MemberProgramState {
+  if (program.demoDayOffset === 0) return program;
+  return {
+    ...program,
+    demoDayOffset: 0,
+    draftDateKey: undefined,
+    draftCompletedTaskIds: [],
+  };
+}
+
+export function buildMemberFeedback(
+  program: MemberProgramState,
+  checkin = latestMemberCheckin(program),
+) {
   if (!checkin) return null;
   const completedCount = checkin.completedTaskIds.length;
   const taskMessage =
@@ -335,43 +490,125 @@ function isAssessment(value: unknown): value is MemberAssessment {
   );
 }
 
-export function parseMemberProgramState(raw: string | null): MemberProgramState | null {
+function safeTaskIdsFromUnknown(value: unknown, program: MemberProgramState) {
+  if (!Array.isArray(value)) return [];
+  const knownIds = knownTaskIds(program);
+  return [...new Set(value)].filter(
+    (id): id is string => typeof id === "string" && knownIds.has(id),
+  );
+}
+
+function parseStoredCheckin(
+  value: unknown,
+  program: MemberProgramState,
+): MemberCheckinSummary | null {
+  if (!value || typeof value !== "object") return null;
+  const checkin = value as Partial<MemberCheckinSummary>;
+  if (
+    typeof checkin.day !== "number" ||
+    !Number.isFinite(checkin.day) ||
+    typeof checkin.blockerProvided !== "boolean" ||
+    typeof checkin.feedbackFocusProvided !== "boolean"
+  ) {
+    return null;
+  }
+  const day = Math.floor(checkin.day);
+  if (day < 1 || day > memberJourneyLength) return null;
+  const expectedDateKey = addMemberDays(program.startedOn, day - 1);
+  if (checkin.dateKey !== expectedDateKey) return null;
+  return {
+    day,
+    dateKey: expectedDateKey,
+    completedTaskIds: safeTaskIdsFromUnknown(checkin.completedTaskIds, program),
+    blockerProvided: checkin.blockerProvided,
+    feedbackFocusProvided: checkin.feedbackFocusProvided,
+  };
+}
+
+export function parseMemberProgramState(
+  raw: string | null,
+  todayDateKey = memberDateKey(),
+): MemberProgramState | null {
   if (!raw) return null;
   try {
-    const parsed = JSON.parse(raw) as Partial<MemberProgramState>;
-    if (parsed.version !== memberProgramVersion || !isAssessment(parsed.assessment)) return null;
-    const base = createMemberProgramState(parsed.assessment);
-    const completedDays =
-      typeof parsed.completedDays === "number"
-        ? Math.max(0, Math.min(14, Math.floor(parsed.completedDays)))
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    if (!isAssessment(parsed.assessment)) return null;
+
+    if (parsed.version === 1) {
+      const legacyCheckin =
+        parsed.lastCheckin && typeof parsed.lastCheckin === "object"
+          ? (parsed.lastCheckin as Record<string, unknown>)
+          : null;
+      const legacyDay =
+        typeof legacyCheckin?.day === "number" && Number.isFinite(legacyCheckin.day)
+          ? Math.max(1, Math.min(memberJourneyLength, Math.floor(legacyCheckin.day)))
+          : 1;
+      const startedOn = legacyCheckin ? addMemberDays(todayDateKey, -(legacyDay - 1)) : todayDateKey;
+      let migrated = createMemberProgramState(parsed.assessment, startedOn);
+
+      if (
+        legacyCheckin &&
+        typeof legacyCheckin.blockerProvided === "boolean" &&
+        typeof legacyCheckin.feedbackFocusProvided === "boolean"
+      ) {
+        migrated = {
+          ...migrated,
+          checkins: [
+            {
+              day: legacyDay,
+              dateKey: addMemberDays(startedOn, legacyDay - 1),
+              completedTaskIds: safeTaskIdsFromUnknown(
+                legacyCheckin.completedTaskIds,
+                migrated,
+              ),
+              blockerProvided: legacyCheckin.blockerProvided,
+              feedbackFocusProvided: legacyCheckin.feedbackFocusProvided,
+            },
+          ],
+        };
+      }
+
+      const legacyDraft = safeTaskIdsFromUnknown(parsed.draftCompletedTaskIds, migrated);
+      if (legacyDraft.length && canSubmitMemberCheckin(migrated, todayDateKey)) {
+        migrated = updateMemberCheckinDraft(migrated, legacyDraft, todayDateKey);
+      }
+      return migrated;
+    }
+
+    if (parsed.version !== memberProgramVersion) return null;
+    const startedOn = isMemberDateKey(parsed.startedOn) ? parsed.startedOn : todayDateKey;
+    const demoDayOffset =
+      typeof parsed.demoDayOffset === "number" && Number.isFinite(parsed.demoDayOffset)
+        ? Math.max(0, Math.min(memberJourneyLength - 1, Math.floor(parsed.demoDayOffset)))
         : 0;
-    const draft = Array.isArray(parsed.draftCompletedTaskIds)
-      ? parsed.draftCompletedTaskIds.filter((id): id is string => typeof id === "string")
+    let next: MemberProgramState = {
+      ...createMemberProgramState(parsed.assessment, startedOn),
+      demoDayOffset,
+    };
+    const seenDates = new Set<string>();
+    const checkins = Array.isArray(parsed.checkins)
+      ? parsed.checkins
+          .map((checkin) => parseStoredCheckin(checkin, next))
+          .filter((checkin): checkin is MemberCheckinSummary => {
+            if (!checkin || seenDates.has(checkin.dateKey)) return false;
+            seenDates.add(checkin.dateKey);
+            return true;
+          })
+          .sort((left, right) => left.day - right.day)
       : [];
-    let next = updateMemberCheckinDraft({ ...base, completedDays }, draft);
-    const checkin = parsed.lastCheckin;
+    next = { ...next, checkins };
+
+    const draftDateKey = isMemberDateKey(parsed.draftDateKey) ? parsed.draftDateKey : null;
     if (
-      checkin &&
-      typeof checkin.day === "number" &&
-      Array.isArray(checkin.completedTaskIds) &&
-      typeof checkin.blockerProvided === "boolean" &&
-      typeof checkin.feedbackFocusProvided === "boolean"
+      draftDateKey &&
+      draftDateKey === memberEffectiveTodayDateKey(next, todayDateKey) &&
+      canSubmitMemberCheckin(next, draftDateKey)
     ) {
-      const knownIds = knownTaskIds(next);
-      const safeTaskIds = checkin.completedTaskIds.filter(
-        (id): id is string => typeof id === "string" && knownIds.has(id),
+      next = updateMemberCheckinDraft(
+        next,
+        safeTaskIdsFromUnknown(parsed.draftCompletedTaskIds, next),
+        draftDateKey,
       );
-      const safeDay = Math.max(1, Math.min(14, Math.floor(checkin.day)));
-      next = {
-        ...next,
-        completedDays: Math.max(next.completedDays, safeDay),
-        lastCheckin: {
-          day: safeDay,
-          completedTaskIds: safeTaskIds,
-          blockerProvided: checkin.blockerProvided,
-          feedbackFocusProvided: checkin.feedbackFocusProvided,
-        },
-      };
     }
     return next;
   } catch {
@@ -383,13 +620,21 @@ export function serializeMemberProgramState(program: MemberProgramState) {
   return JSON.stringify(program);
 }
 
-export function memberProgramStorageKey(identity: string) {
+function memberProgramStorageKeyForPrefix(identity: string, prefix: string) {
   let hash = 2166136261;
   for (const char of identity.trim().toLowerCase()) {
     hash ^= char.charCodeAt(0);
     hash = Math.imul(hash, 16777619);
   }
-  return `${memberProgramStoragePrefix}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  return `${prefix}:${(hash >>> 0).toString(16).padStart(8, "0")}`;
+}
+
+export function memberProgramStorageKey(identity: string) {
+  return memberProgramStorageKeyForPrefix(identity, memberProgramStoragePrefix);
+}
+
+export function legacyMemberProgramStorageKey(identity: string) {
+  return memberProgramStorageKeyForPrefix(identity, legacyMemberProgramStoragePrefix);
 }
 
 export function canAccessMemberWorkspace(session: DemoSessionLike | null) {

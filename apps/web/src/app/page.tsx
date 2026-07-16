@@ -730,7 +730,7 @@ export function RoleRoutedDemo({
           <div className="grid gap-4">
             <div className="rounded-3xl border border-line bg-surface p-6">
               <p className="text-sm font-medium text-ink-muted">阶段进度</p>
-              <p className="mt-3 text-3xl font-bold">Day 1 / 14</p>
+              <p className="mt-3 text-3xl font-bold">Day 1 / 7</p>
               <p className="mt-2 text-sm leading-6 text-ink-soft">
                 先用网页端承接 C 端会员路径；移动端/PWA 下一阶段再系统适配。
               </p>
