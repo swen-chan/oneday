@@ -838,7 +838,6 @@ export function RoleRoutedDemo({
     return (
       <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
         <section>
-          <p className="mb-4 text-sm font-medium text-brand">One Day 统一入口</p>
           <h1 className="text-4xl font-bold leading-tight">
             <span className="block">今天怎样度过，</span>
             <span className="block">一生便怎样展开。</span>
