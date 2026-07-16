@@ -13,7 +13,7 @@
   --color-warn-soft: #f7f0e4;
   --color-sleep: #7d8590;
   --color-sleep-soft: #eef0f2;
-  --font-sans: var(--font-noto-sans-sc), "PingFang SC", system-ui, sans-serif;
+  --font-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
 }
 
 body {
