@@ -1,5 +1,5 @@
-import { RoleRoutedDemo } from "../page";
+import { MemberWorkspace } from "@/member/MemberWorkspace";
 
 export default function MemberPage() {
-  return <RoleRoutedDemo initialWorkspace="member" />;
+  return <MemberWorkspace view="home" />;
 }
