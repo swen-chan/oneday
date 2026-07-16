@@ -1,6 +1,7 @@
 "use client";
 
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 // One Day 私域运营台：账号入口 → 该品牌的工作台。
 // 多租户叙事：每个品牌有自己的群数据、健康分和内容默认值。
@@ -82,6 +83,8 @@ const contentDayOptions = [3, 7, 14, 30] as const;
 type ContentPackageId = (typeof contentPackagePresets)[number]["id"] | "custom";
 type EntryMode = "login" | "register";
 type ContentField = "momentsPost" | "groupTopic" | "dmScript";
+type DemoWorkspace = "login" | "console" | "member" | "workspaces";
+type DemoRole = "operator" | "member";
 
 const contentToneOptions = [
   { id: "warm", label: "温柔陪伴", prompt: "温柔陪伴语气" },
@@ -134,18 +137,70 @@ const demoAccountPresets = [
     label: "JING 运营账号",
     email: "jing@oneday.demo",
     password: "demo-1234",
+    roles: ["operator"] as const,
   },
   {
     label: "山语运营账号",
     email: "shanyu@oneday.demo",
     password: "demo-1234",
+    roles: ["operator"] as const,
   },
   {
     label: "绿原运营账号",
     email: "lvyuan@oneday.demo",
     password: "demo-1234",
+    roles: ["operator"] as const,
   },
 ] as const;
+
+const memberDemoAccounts = [
+  {
+    label: "JING 会员账号",
+    email: "member@oneday.demo",
+    password: "demo-1234",
+    roles: ["member"] as const,
+  },
+  {
+    label: "双角色体验账号",
+    email: "dual@oneday.demo",
+    password: "demo-1234",
+    roles: ["operator", "member"] as const,
+  },
+] as const;
+
+const demoSessionKey = "oneday-demo-role-session";
+
+interface DemoSession {
+  email: string;
+  label: string;
+  roles: DemoRole[];
+  brandId?: string;
+  brandName?: string;
+}
+
+interface DemoAccount {
+  label: string;
+  email: string;
+  password: string;
+  roles: readonly DemoRole[];
+  brand?: Brand;
+}
+
+function saveDemoSession(session: DemoSession) {
+  window.localStorage.setItem(demoSessionKey, JSON.stringify(session));
+}
+
+function readDemoSession(): DemoSession | null {
+  const raw = window.localStorage.getItem(demoSessionKey);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as DemoSession;
+    if (!parsed.email || !Array.isArray(parsed.roles)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
 
 function daysAgo(iso: string, ref: string): string {
   const d = Math.floor(
@@ -154,11 +209,17 @@ function daysAgo(iso: string, ref: string): string {
   return d <= 0 ? "今天" : `${d} 天前`;
 }
 
-export default function DemoConsole() {
+export function RoleRoutedDemo({
+  initialWorkspace = "login",
+}: {
+  initialWorkspace?: DemoWorkspace;
+}) {
+  const router = useRouter();
   const [brands, setBrands] = useState<Brand[]>([]);
   const [brand, setBrand] = useState<Brand | null>(null);
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [calendar, setCalendar] = useState<CalendarPackage | null>(null);
+  const [session, setSession] = useState<DemoSession | null>(null);
   const [entryMode, setEntryMode] = useState<EntryMode>("login");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -190,17 +251,24 @@ export default function DemoConsole() {
   const activeChannel =
     contentChannelOptions.find((channel) => channel.id === selectedChannelId) ??
     contentChannelOptions[0];
-  const demoAccounts = brands.map((b, index) => {
+  const demoAccounts: DemoAccount[] = brands.map((b, index) => {
     const preset =
       demoAccountPresets[index] ?? {
         label: `${b.name} 运营账号`,
         email: `brand${index + 1}@oneday.demo`,
         password: `OneDay${index + 1}`,
+        roles: ["operator"] as const,
       };
     return { ...preset, brand: b };
   });
+  const roleDemoAccounts: DemoAccount[] = memberDemoAccounts.map((account) => ({
+    ...account,
+    brand: account.roles.some((role) => role === "operator") ? brands[0] : undefined,
+  }));
+  const allDemoAccounts = [...demoAccounts, ...roleDemoAccounts];
 
   useEffect(() => {
+    setSession(readDemoSession());
     const boot = async () => {
       try {
         await fetch(`${API}/api/demo/seed`, { method: "POST" });
@@ -214,7 +282,21 @@ export default function DemoConsole() {
     void boot();
   }, []);
 
-  const enterBrand = async (b: Brand) => {
+  const routeSession = (nextSession: DemoSession) => {
+    saveDemoSession(nextSession);
+    setSession(nextSession);
+    if (nextSession.roles.length > 1) {
+      router.push("/workspaces");
+      return;
+    }
+    if (nextSession.roles.includes("member")) {
+      router.push("/member");
+      return;
+    }
+    router.push("/console");
+  };
+
+  const enterBrand = useCallback(async (b: Brand) => {
     setLoading(b.id);
     setError(null);
     try {
@@ -237,11 +319,19 @@ export default function DemoConsole() {
     } finally {
       setLoading(null);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialWorkspace !== "console") return;
+    if (brands.length === 0 || !session?.brandId) return;
+    const routeBrand = brands.find((b) => b.id === session.brandId);
+    if (!routeBrand || brand?.id === routeBrand.id) return;
+    void enterBrand(routeBrand);
+  }, [brand?.id, brands, enterBrand, initialWorkspace, session?.brandId]);
 
   const login = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const account = demoAccounts.find(
+    const account = allDemoAccounts.find(
       (a) => a.email.toLowerCase() === loginEmail.trim().toLowerCase(),
     );
     if (!account || account.password !== loginPassword) {
@@ -249,7 +339,14 @@ export default function DemoConsole() {
       setEntryNotice(null);
       return;
     }
-    await enterBrand(account.brand);
+    const primaryBrand = account.brand ?? brands[0];
+    routeSession({
+      email: account.email,
+      label: account.label,
+      roles: [...account.roles],
+      brandId: primaryBrand?.id,
+      brandName: primaryBrand?.name,
+    });
   };
 
   const register = async (event: FormEvent<HTMLFormElement>) => {
@@ -266,7 +363,13 @@ export default function DemoConsole() {
     }
     setError(null);
     setEntryNotice(null);
-    await enterBrand(brands[0]);
+    routeSession({
+      email: registerEmail.trim(),
+      label: `${registerName.trim()} 运营账号`,
+      roles: ["operator"],
+      brandId: brands[0].id,
+      brandName: brands[0].name,
+    });
   };
 
   const generate = async () => {
@@ -295,15 +398,222 @@ export default function DemoConsole() {
     }
   };
 
+  const logout = () => {
+    window.localStorage.removeItem(demoSessionKey);
+    setSession(null);
+    setBrand(null);
+    setDashboard(null);
+    setCalendar(null);
+    setGeneratedPackageName("");
+    setExpandedLayers({});
+    router.push("/");
+  };
+
+  const returnToLogin = () => {
+    router.push("/");
+  };
+
+  if (initialWorkspace !== "login" && !session) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
+        <div className="rounded-3xl border border-line bg-surface p-8">
+          <p className="mb-3 text-sm font-medium text-brand">Demo role routing</p>
+          <h1 className="text-2xl font-bold">请先登录</h1>
+          <p className="mt-3 text-sm leading-7 text-ink-soft">
+            当前是演示角色分流页面，需要先从统一登录入口选择一个演示账号。
+          </p>
+          <button
+            type="button"
+            onClick={returnToLogin}
+            className="mt-6 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white"
+          >
+            返回登录
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (initialWorkspace === "member") {
+    if (!session?.roles.includes("member")) {
+      return (
+        <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
+          <div className="rounded-3xl border border-line bg-surface p-8">
+            <p className="mb-3 text-sm font-medium text-warn">角色不匹配</p>
+            <h1 className="text-2xl font-bold">当前账号没有会员工作区权限</h1>
+            <p className="mt-3 text-sm leading-7 text-ink-soft">
+              Phase 0 只做 demo role routing。请回到统一登录入口，使用会员或双角色演示账号。
+            </p>
+            <button
+              type="button"
+              onClick={returnToLogin}
+              className="mt-6 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white"
+            >
+              返回登录
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mx-auto max-w-6xl px-6 py-10">
+        <header className="mb-10 flex flex-wrap items-end justify-between gap-4 border-b border-line pb-6">
+          <div>
+            <p className="mb-2 text-sm font-medium text-brand">One Day 会员工作区</p>
+            <h1 className="text-3xl font-bold">今天先把自己照顾回来</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-7 text-ink-soft">
+              {session.label} · 网页端 C 端首屏。这里先验证统一登录后的会员工作区承接，完整移动体验留到下一阶段。
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm text-ink-muted transition hover:text-ink"
+          >
+            退出账号 ↩
+          </button>
+        </header>
+
+        <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="rounded-3xl border border-line bg-surface p-6">
+            <p className="text-xs font-medium tracking-widest text-ink-muted">TODAY</p>
+            <h2 className="mt-3 text-xl font-bold">今日 3 步照护</h2>
+            <div className="mt-5 grid gap-3">
+              {[
+                ["身体", "2 分钟呼吸扫描，标记今天最需要被照顾的位置。"],
+                ["情绪", "写下一句此刻真实感受，不需要解释。"],
+                ["行动", "选一个 15 分钟以内能完成的小行动。"],
+              ].map(([label, body]) => (
+                <div key={label} className="rounded-2xl bg-bg px-4 py-4">
+                  <p className="text-sm font-bold">{label}</p>
+                  <p className="mt-1 text-sm leading-6 text-ink-soft">{body}</p>
+                </div>
+              ))}
+            </div>
+            <button
+              type="button"
+              className="mt-6 rounded-full border border-brand px-5 py-3 text-sm font-medium text-brand"
+            >
+              开始今日打卡
+            </button>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="rounded-3xl border border-line bg-surface p-6">
+              <p className="text-sm font-medium text-ink-muted">阶段进度</p>
+              <p className="mt-3 text-3xl font-bold">Day 1 / 14</p>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                先用网页端承接 C 端会员路径；移动端/PWA 下一阶段再系统适配。
+              </p>
+            </div>
+            <div className="rounded-3xl border border-line bg-brand-soft p-6">
+              <p className="text-sm font-medium text-brand">AI 反馈预览</p>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">
+                完成打卡后，One Day 会生成一段温和反馈和下一步建议。当前是 Phase 0 占位，不接真实会员数据。
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <footer className="mt-16 border-t border-line pt-6 text-xs text-ink-muted">
+          Demo role routing · 非真实登录安全 · 真实 session、权限 guard、会员数据隔离将在 Phase 1 接入
+        </footer>
+      </div>
+    );
+  }
+
+  if (initialWorkspace === "workspaces") {
+    return (
+      <div className="mx-auto max-w-5xl px-6 py-12">
+        <header className="mb-8">
+          <p className="mb-3 text-sm font-medium text-brand">One Day 工作区选择</p>
+          <h1 className="text-3xl font-bold">选择这次要进入的身份</h1>
+          <p className="mt-3 text-sm text-ink-soft">
+            {session?.label} · 双角色演示账号。真实多角色授权会在 Phase 1 用后端 session 与权限 guard 承接。
+          </p>
+        </header>
+        <div className="grid gap-4 md:grid-cols-2">
+          <button
+            type="button"
+            disabled={!session?.roles.includes("operator")}
+            onClick={() => router.push("/console")}
+            className="rounded-3xl border border-line bg-surface p-6 text-left transition hover:border-brand disabled:opacity-50"
+          >
+            <p className="text-sm font-medium text-brand">品牌运营台</p>
+            <h2 className="mt-3 text-xl font-bold">进入 B 端 Console</h2>
+            <p className="mt-2 text-sm leading-6 text-ink-soft">
+              查看私域健康看板，生成内容包，管理品牌侧运营动作。
+            </p>
+          </button>
+          <button
+            type="button"
+            disabled={!session?.roles.includes("member")}
+            onClick={() => router.push("/member")}
+            className="rounded-3xl border border-line bg-surface p-6 text-left transition hover:border-brand disabled:opacity-50"
+          >
+            <p className="text-sm font-medium text-brand">会员体验区</p>
+            <h2 className="mt-3 text-xl font-bold">进入 C 端 Member</h2>
+            <p className="mt-2 text-sm leading-6 text-ink-soft">
+              查看今日照护任务、打卡入口、反馈与进度预览。
+            </p>
+          </button>
+        </div>
+        <button
+          type="button"
+          onClick={logout}
+          className="mt-8 text-sm text-ink-muted transition hover:text-ink"
+        >
+          退出账号 ↩
+        </button>
+      </div>
+    );
+  }
+
+  if (initialWorkspace === "console" && !session?.roles.includes("operator")) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
+        <div className="rounded-3xl border border-line bg-surface p-8">
+          <p className="mb-3 text-sm font-medium text-warn">角色不匹配</p>
+          <h1 className="text-2xl font-bold">当前账号没有品牌运营台权限</h1>
+          <p className="mt-3 text-sm leading-7 text-ink-soft">
+            请使用品牌运营账号，或用双角色账号在工作区选择页切换身份。
+          </p>
+          <button
+            type="button"
+            onClick={returnToLogin}
+            className="mt-6 rounded-full bg-brand px-5 py-3 text-sm font-medium text-white"
+          >
+            返回登录
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (initialWorkspace === "console" && !brand) {
+    return (
+      <div className="mx-auto flex min-h-screen max-w-xl flex-col justify-center px-6 py-12">
+        <div className="rounded-3xl border border-line bg-surface p-8">
+          <p className="mb-3 text-sm font-medium text-brand">品牌运营台</p>
+          <h1 className="text-2xl font-bold">正在进入工作区</h1>
+          <p className="mt-3 text-sm leading-7 text-ink-soft">
+            正在读取 {session?.brandName ?? "绑定品牌"} 的演示数据。
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   // ---------- 品牌账号入口 ----------
   if (!brand) {
     return (
       <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
         <section>
-          <p className="mb-4 text-sm font-medium text-brand">One Day 私域运营台</p>
-          <h1 className="text-4xl font-bold leading-tight">登录品牌账号，进入私域运营工作台</h1>
+          <p className="mb-4 text-sm font-medium text-brand">One Day 统一入口</p>
+          <h1 className="text-4xl font-bold leading-tight">登录 One Day，进入对应工作区</h1>
           <p className="mt-5 max-w-md text-sm leading-7 text-ink-soft">
-            为大健康与疗愈品牌管理私域健康看板、互动提醒与内容包生成。每个账号进入后只看到绑定品牌的数据。
+            同一个账号体系承接品牌运营者和会员体验；登录后按演示角色进入 B 端运营台或 C 端会员工作区。
           </p>
           <div className="mt-8 grid max-w-md grid-cols-3 gap-3 text-center">
             {["健康看板", "互动提醒", "内容包"].map((label) => (
@@ -341,12 +651,12 @@ export default function DemoConsole() {
 
           <header className="mb-6">
             <h2 className="text-xl font-bold">
-              {entryMode === "login" ? "登录 One Day" : "注册品牌账号"}
+              {entryMode === "login" ? "登录 One Day" : "注册 One Day 账号"}
             </h2>
             <p className="mt-2 text-sm text-ink-muted">
               {entryMode === "login"
-                ? "输入邮箱和密码，进入已绑定的品牌工作台。"
-                : "填写账号与品牌信息，提交开通申请。"}
+                ? "输入邮箱和密码，系统会按账号角色进入对应工作区。"
+                : "填写账号信息，演示环境会先进入品牌运营台。"}
             </p>
           </header>
 
@@ -440,7 +750,7 @@ export default function DemoConsole() {
             </form>
           )}
           <footer className="mt-6 border-t border-line pt-4 text-xs text-ink-muted">
-            演示环境 · 每个账号只展示绑定品牌
+            Demo role routing · 非真实登录安全 · 真实 session、权限 guard、数据隔离将在 Phase 1 接入
           </footer>
         </main>
       </div>
@@ -463,13 +773,7 @@ export default function DemoConsole() {
           </div>
         </div>
         <button
-          onClick={() => {
-            setBrand(null);
-            setDashboard(null);
-            setCalendar(null);
-            setGeneratedPackageName("");
-            setExpandedLayers({});
-          }}
+          onClick={logout}
           className="text-sm text-ink-muted transition hover:text-ink"
         >
           退出账号 ↩
@@ -802,4 +1106,8 @@ export default function DemoConsole() {
       </footer>
     </div>
   );
+}
+
+export default function LoginPage() {
+  return <RoleRoutedDemo initialWorkspace="login" />;
 }
