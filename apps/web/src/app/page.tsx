@@ -842,13 +842,6 @@ export function RoleRoutedDemo({
             <span className="block">今天怎样度过，</span>
             <span className="block">一生便怎样展开。</span>
           </h1>
-          <div className="mt-8 grid max-w-md grid-cols-3 gap-3 text-center">
-            {["健康看板", "互动提醒", "内容包"].map((label) => (
-              <div key={label} className="rounded-2xl border border-line bg-surface px-3 py-4">
-                <p className="text-sm font-medium">{label}</p>
-              </div>
-            ))}
-          </div>
         </section>
 
         <main className="rounded-3xl border border-line bg-surface p-6 shadow-sm">
