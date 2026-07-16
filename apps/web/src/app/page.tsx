@@ -839,9 +839,12 @@ export function RoleRoutedDemo({
       <div className="mx-auto grid min-h-screen max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-[0.9fr_1.1fr]">
         <section>
           <p className="mb-4 text-sm font-medium text-brand">One Day 统一入口</p>
-          <h1 className="text-4xl font-bold leading-tight">登录 One Day，进入对应工作区</h1>
+          <h1 className="text-4xl font-bold leading-tight">
+            <span className="block">今天怎样度过，</span>
+            <span className="block">一生便怎样展开。</span>
+          </h1>
           <p className="mt-5 max-w-md text-sm leading-7 text-ink-soft">
-            同一个账号体系承接品牌运营者和会员体验；登录后按账号角色进入 B 端运营台或 C 端会员工作区。
+            登录 One Day，进入你的品牌运营台或会员空间。
           </p>
           <div className="mt-8 grid max-w-md grid-cols-3 gap-3 text-center">
             {["健康看板", "互动提醒", "内容包"].map((label) => (
