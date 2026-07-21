@@ -2,6 +2,21 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AdminManagement } from "../console/AdminManagement";
+import {
+  authenticateAdminAccount,
+  demoPasswordDigest,
+  digestDemoPassword,
+  readAdminAccounts,
+  saveAdminAccounts,
+  type AdminAccount,
+} from "../console/adminAccounts";
+import { CommercialDashboard } from "../console/CommercialDashboard";
+import {
+  hotelOptions,
+  type ConsoleAccess,
+  type HotelId,
+} from "../console/commercialData";
 
 // One Day 私域运营台：账号入口 → 该品牌的工作台。
 // 多租户叙事：每个品牌有自己的群数据、健康分和内容默认值。
@@ -85,17 +100,6 @@ type EntryMode = "login" | "register";
 type ContentField = "momentsPost" | "groupTopic" | "dmScript";
 type DemoWorkspace = "login" | "console" | "member" | "workspaces";
 type DemoRole = "owner" | "operator" | "member";
-type ManageableUserRole = "operator" | "member";
-type ConsoleUserStatus = "active" | "paused";
-
-interface ConsoleUser {
-  id: string;
-  name: string;
-  email: string;
-  role: DemoRole;
-  status: ConsoleUserStatus;
-  lastActiveAt: string;
-}
 
 const contentToneOptions = [
   { id: "warm", label: "温柔陪伴", prompt: "温柔陪伴语气" },
@@ -143,35 +147,27 @@ const contentFieldLabels: Record<ContentField, string> = {
   dmScript: "私信话术",
 };
 
-const demoPasswordDigest = "186bf572";
-
-function digestDemoPassword(value: string) {
-  let hash = 2166136261;
-  for (const char of value) {
-    hash ^= char.charCodeAt(0);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0).toString(16).padStart(8, "0");
-}
-
 const demoAccountPresets = [
   {
     label: "JING 负责人账号",
     email: "jing@oneday.demo",
     passwordDigest: demoPasswordDigest,
     roles: ["owner"] as const,
+    allowedHotelIds: hotelOptions.map((hotel) => hotel.id),
   },
   {
     label: "山语运营账号",
     email: "shanyu@oneday.demo",
     passwordDigest: demoPasswordDigest,
     roles: ["operator"] as const,
+    allowedHotelIds: ["wumingchu"] as const,
   },
   {
     label: "绿原运营账号",
     email: "lvyuan@oneday.demo",
     passwordDigest: demoPasswordDigest,
     roles: ["operator"] as const,
+    allowedHotelIds: ["junting"] as const,
   },
 ] as const;
 
@@ -187,27 +183,11 @@ const memberDemoAccounts = [
     email: "dual@oneday.demo",
     passwordDigest: demoPasswordDigest,
     roles: ["operator", "member"] as const,
+    allowedHotelIds: ["wumingchu"] as const,
   },
 ] as const;
 
 const demoSessionKey = "oneday-demo-role-session";
-const consoleUsersStoragePrefix = "oneday-console-users";
-
-const userRoleLabels: Record<DemoRole, string> = {
-  owner: "品牌负责人",
-  operator: "管理员",
-  member: "普通用户",
-};
-
-const userStatusLabels: Record<ConsoleUserStatus, string> = {
-  active: "启用",
-  paused: "停用",
-};
-
-const manageableUserRoleOptions: { id: ManageableUserRole; label: string }[] = [
-  { id: "operator", label: userRoleLabels.operator },
-  { id: "member", label: userRoleLabels.member },
-];
 
 interface DemoSession {
   email: string;
@@ -215,6 +195,7 @@ interface DemoSession {
   roles: DemoRole[];
   brandId?: string;
   brandName?: string;
+  allowedHotelIds?: HotelId[];
 }
 
 interface DemoAccount {
@@ -222,6 +203,7 @@ interface DemoAccount {
   email: string;
   passwordDigest: string;
   roles: readonly DemoRole[];
+  allowedHotelIds?: readonly HotelId[];
   brand?: Brand;
 }
 
@@ -231,62 +213,6 @@ function hasConsoleRole(roles: readonly DemoRole[]) {
 
 function hasOwnerRole(roles: readonly DemoRole[] | undefined) {
   return roles?.includes("owner") ?? false;
-}
-
-function consoleUsersStorageKey(brandId: string) {
-  return `${consoleUsersStoragePrefix}:${brandId}`;
-}
-
-function defaultConsoleUsers(brand: Brand, session: DemoSession | null): ConsoleUser[] {
-  const sessionIsBrandOwner =
-    session?.brandId === brand.id && hasOwnerRole(session.roles);
-  const ownerEmail = sessionIsBrandOwner ? session.email : `owner+${brand.id}@oneday.demo`;
-  const ownerName = sessionIsBrandOwner ? session.label : `${brand.name} 品牌负责人`;
-  return [
-    {
-      id: `${brand.id}-owner`,
-      name: ownerName,
-      email: ownerEmail,
-      role: "owner",
-      status: "active",
-      lastActiveAt: "今天",
-    },
-    {
-      id: `${brand.id}-operator`,
-      name: `${brand.name} 内容运营`,
-      email: `operator+${brand.id}@oneday.demo`,
-      role: "operator",
-      status: "active",
-      lastActiveAt: "昨天",
-    },
-    {
-      id: `${brand.id}-member`,
-      name: `${brand.name} 会员代表`,
-      email: `member+${brand.id}@oneday.demo`,
-      role: "member",
-      status: "active",
-      lastActiveAt: "3 天前",
-    },
-  ];
-}
-
-function readConsoleUsers(brand: Brand, session: DemoSession | null): ConsoleUser[] {
-  const fallback = defaultConsoleUsers(brand, session);
-  const raw = window.localStorage.getItem(consoleUsersStorageKey(brand.id));
-  if (!raw) return fallback;
-  try {
-    const parsed = JSON.parse(raw) as ConsoleUser[];
-    if (!Array.isArray(parsed) || parsed.length === 0) return fallback;
-    const hasOwner = parsed.some((user) => user.role === "owner");
-    if (!hasOwner) return fallback;
-    return parsed;
-  } catch {
-    return fallback;
-  }
-}
-
-function saveConsoleUsers(brandId: string, users: ConsoleUser[]) {
-  window.localStorage.setItem(consoleUsersStorageKey(brandId), JSON.stringify(users));
 }
 
 function saveDemoSession(session: DemoSession) {
@@ -330,13 +256,7 @@ export function RoleRoutedDemo({
   const [registerEmail, setRegisterEmail] = useState("");
   const [registerPassword, setRegisterPassword] = useState("");
   const [entryNotice, setEntryNotice] = useState<string | null>(null);
-  const [consoleUsers, setConsoleUsers] = useState<ConsoleUser[]>([]);
-  const [userEditingId, setUserEditingId] = useState<string | null>(null);
-  const [userName, setUserName] = useState("");
-  const [userEmail, setUserEmail] = useState("");
-  const [userRole, setUserRole] = useState<ManageableUserRole>("operator");
-  const [userStatus, setUserStatus] = useState<ConsoleUserStatus>("active");
-  const [userNotice, setUserNotice] = useState<string | null>(null);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
   const [theme, setTheme] = useState("");
   const [selectedPackageId, setSelectedPackageId] = useState<ContentPackageId>("weekly");
   const [selectedToneId, setSelectedToneId] = useState<ContentToneId>("warm");
@@ -368,6 +288,7 @@ export function RoleRoutedDemo({
         email: `brand${index + 1}@oneday.demo`,
         passwordDigest: demoPasswordDigest,
         roles: ["operator"] as const,
+        allowedHotelIds: [hotelOptions[index % hotelOptions.length].id] as const,
       };
     return { ...preset, brand: b };
   });
@@ -376,113 +297,6 @@ export function RoleRoutedDemo({
     brand: hasConsoleRole(account.roles) ? brands[0] : undefined,
   }));
   const allDemoAccounts = [...demoAccounts, ...roleDemoAccounts];
-
-  const resetUserForm = useCallback(() => {
-    setUserEditingId(null);
-    setUserName("");
-    setUserEmail("");
-    setUserRole("operator");
-    setUserStatus("active");
-  }, []);
-
-  const persistConsoleUsers = (nextUsers: ConsoleUser[]) => {
-    if (!brand) return;
-    setConsoleUsers(nextUsers);
-    saveConsoleUsers(brand.id, nextUsers);
-  };
-
-  const startUserEdit = (user: ConsoleUser) => {
-    if (user.role === "owner") {
-      setUserNotice("负责人账号不能在此表单里编辑");
-      return;
-    }
-    setUserEditingId(user.id);
-    setUserName(user.name);
-    setUserEmail(user.email);
-    setUserRole(user.role);
-    setUserStatus(user.status);
-    setUserNotice(null);
-  };
-
-  const submitConsoleUser = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!brand || !hasOwnerRole(session?.roles)) return;
-    const trimmedName = userName.trim();
-    const trimmedEmail = userEmail.trim().toLowerCase();
-    if (!trimmedName || !trimmedEmail) {
-      setUserNotice("请填写用户姓名和邮箱");
-      return;
-    }
-    const duplicatedEmail = consoleUsers.some(
-      (user) => user.email.toLowerCase() === trimmedEmail && user.id !== userEditingId,
-    );
-    if (duplicatedEmail) {
-      setUserNotice("该邮箱已在当前品牌下");
-      return;
-    }
-    const nextUsers = userEditingId
-      ? consoleUsers.map((user) =>
-          user.id === userEditingId && user.role !== "owner"
-            ? {
-                ...user,
-                name: trimmedName,
-                email: trimmedEmail,
-                role: userRole,
-                status: userStatus,
-                lastActiveAt: "刚刚",
-              }
-            : user,
-        )
-      : [
-          ...consoleUsers,
-          {
-            id: `${brand.id}-${Date.now()}`,
-            name: trimmedName,
-            email: trimmedEmail,
-            role: userRole,
-            status: userStatus,
-            lastActiveAt: "刚刚",
-          },
-        ];
-    persistConsoleUsers(nextUsers);
-    setUserNotice(userEditingId ? "用户信息已更新" : "用户已加入当前品牌");
-    resetUserForm();
-  };
-
-  const toggleUserStatus = (userId: string) => {
-    if (!brand || !hasOwnerRole(session?.roles)) return;
-    const user = consoleUsers.find((item) => item.id === userId);
-    if (!user || user.role === "owner") {
-      setUserNotice("负责人账号不能停用");
-      return;
-    }
-    const nextUsers = consoleUsers.map((item) => {
-      const nextStatus: ConsoleUserStatus = item.status === "active" ? "paused" : "active";
-      return item.id === userId ? { ...item, status: nextStatus } : item;
-    });
-    persistConsoleUsers(nextUsers);
-    setUserNotice(user.status === "active" ? "用户已停用" : "用户已启用");
-  };
-
-  const removeConsoleUser = (userId: string) => {
-    if (!brand || !hasOwnerRole(session?.roles)) return;
-    const user = consoleUsers.find((item) => item.id === userId);
-    if (!user || user.role === "owner") {
-      setUserNotice("负责人账号不能删除");
-      return;
-    }
-    persistConsoleUsers(consoleUsers.filter((item) => item.id !== userId));
-    setUserNotice("用户已从当前品牌移除");
-    if (userEditingId === userId) resetUserForm();
-  };
-
-  const resetConsoleUserData = () => {
-    if (!brand || !hasOwnerRole(session?.roles)) return;
-    const nextUsers = defaultConsoleUsers(brand, session);
-    persistConsoleUsers(nextUsers);
-    resetUserForm();
-    setUserNotice("用户管理数据已重置");
-  };
 
   useEffect(() => {
     setSession(readDemoSession());
@@ -522,9 +336,7 @@ export function RoleRoutedDemo({
         setDashboard((await dash.json()) as Dashboard);
       }
       setBrand(b);
-      setConsoleUsers(readConsoleUsers(b, session));
-      resetUserForm();
-      setUserNotice(null);
+      setAdminAccounts(readAdminAccounts(b.id));
       setSelectedPackageId("weekly");
       setSelectedToneId("warm");
       setSelectedChannelId("all");
@@ -539,7 +351,7 @@ export function RoleRoutedDemo({
     } finally {
       setLoading(null);
     }
-  }, [resetUserForm, session]);
+  }, []);
 
   const sessionBrandId = session?.brandId;
   const sessionRoles = session?.roles;
@@ -555,10 +367,33 @@ export function RoleRoutedDemo({
 
   const login = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const account = allDemoAccounts.find(
-      (a) => a.email.toLowerCase() === loginEmail.trim().toLowerCase(),
+    const normalizedEmail = loginEmail.trim().toLowerCase();
+    const passwordDigest = digestDemoPassword(loginPassword);
+    const staticAccount = allDemoAccounts.find(
+      (account) => account.email.toLowerCase() === normalizedEmail,
     );
-    if (!account || account.passwordDigest !== digestDemoPassword(loginPassword)) {
+    let dynamicAccount: DemoAccount | undefined;
+    for (const currentBrand of brands) {
+      const adminAccount = authenticateAdminAccount(
+        readAdminAccounts(currentBrand.id),
+        normalizedEmail,
+        passwordDigest,
+      );
+      if (adminAccount) {
+        dynamicAccount = {
+          label: adminAccount.username,
+          email: adminAccount.email,
+          passwordDigest: adminAccount.passwordDigest,
+          roles: ["operator"],
+          allowedHotelIds: adminAccount.allowedHotelIds,
+          brand: currentBrand,
+        };
+        break;
+      }
+    }
+    const account =
+      staticAccount?.passwordDigest === passwordDigest ? staticAccount : dynamicAccount;
+    if (!account) {
       setError("邮箱或密码不正确");
       setEntryNotice(null);
       return;
@@ -571,6 +406,7 @@ export function RoleRoutedDemo({
       roles: [...account.roles],
       brandId: primaryBrand?.id,
       brandName: primaryBrand?.name,
+      allowedHotelIds: account.allowedHotelIds ? [...account.allowedHotelIds] : undefined,
     });
   };
 
@@ -594,6 +430,7 @@ export function RoleRoutedDemo({
       roles: ["owner"],
       brandId: brands[0].id,
       brandName: brands[0].name,
+      allowedHotelIds: hotelOptions.map((hotel) => hotel.id),
     });
   };
 
@@ -629,9 +466,7 @@ export function RoleRoutedDemo({
     setBrand(null);
     setDashboard(null);
     setCalendar(null);
-    setConsoleUsers([]);
-    resetUserForm();
-    setUserNotice(null);
+    setAdminAccounts([]);
     setGeneratedPackageName("");
     setExpandedLayers({});
     router.push("/");
@@ -975,6 +810,32 @@ export function RoleRoutedDemo({
     );
   }
 
+  const canonicalStaticAccount = session
+    ? allDemoAccounts.find(
+        (account) =>
+          account.email.toLowerCase() === session.email.toLowerCase() &&
+          account.brand?.id === brand.id,
+      )
+    : undefined;
+  const canonicalAdminAccount = session
+    ? adminAccounts.find(
+        (account) => account.email.toLowerCase() === session.email.toLowerCase(),
+      )
+    : undefined;
+  const consoleAccess: ConsoleAccess = hasOwnerRole(session?.roles)
+    ? { role: "owner", allowedHotelIds: hotelOptions.map((hotel) => hotel.id) }
+    : {
+        role: "operator",
+        allowedHotelIds:
+          canonicalAdminAccount?.allowedHotelIds ??
+          canonicalStaticAccount?.allowedHotelIds ??
+          [],
+      };
+  const updateAdminAccounts = (nextAccounts: AdminAccount[]) => {
+    setAdminAccounts(nextAccounts);
+    saveAdminAccounts(brand.id, nextAccounts);
+  };
+
   // ---------- 品牌工作台 ----------
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -1001,6 +862,8 @@ export function RoleRoutedDemo({
       {error && (
         <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>
       )}
+
+      <CommercialDashboard brandId={brand.id} access={consoleAccess} />
 
       {dashboard && (
         <section className="mb-12">
@@ -1083,191 +946,12 @@ export function RoleRoutedDemo({
         </section>
       )}
 
-      <section className="mb-12">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-bold">用户管理</h2>
-            <p className="mt-1 text-sm text-ink-muted">
-              品牌负责人管理管理员和普通用户，owner 权限保留给负责人账号
-            </p>
-          </div>
-          {hasOwnerRole(session?.roles) && (
-            <button
-              type="button"
-              onClick={resetConsoleUserData}
-              className="rounded-full border border-line px-4 py-2 text-xs font-medium text-ink-muted transition hover:border-brand hover:text-brand"
-            >
-              重置数据
-            </button>
-          )}
-        </div>
-
-        {!hasOwnerRole(session?.roles) ? (
-          <div className="rounded-2xl border border-line bg-surface p-6">
-            <p className="text-sm font-bold">仅品牌负责人可管理用户</p>
-            <p className="mt-2 text-sm leading-6 text-ink-soft">
-              当前账号可使用健康看板与内容包工作台；管理员和普通用户的增删改停用由 owner 账号处理。
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-4 lg:grid-cols-[0.85fr_1.15fr]">
-            <form
-              onSubmit={submitConsoleUser}
-              className="rounded-2xl border border-line bg-surface p-5"
-            >
-              <div className="mb-5 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-bold">
-                    {userEditingId ? "编辑用户" : "新增用户"}
-                  </h3>
-                  <p className="mt-1 text-xs text-ink-muted">
-                    可创建管理员或普通用户，owner 不在此表单开放
-                  </p>
-                </div>
-                {userEditingId && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      resetUserForm();
-                      setUserNotice(null);
-                    }}
-                    className="text-xs text-ink-muted transition hover:text-brand"
-                  >
-                    取消编辑
-                  </button>
-                )}
-              </div>
-
-              {userNotice && (
-                <p className="mb-4 rounded-xl bg-brand-soft px-3 py-2 text-xs text-brand">
-                  {userNotice}
-                </p>
-              )}
-
-              <div className="grid gap-3">
-                <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
-                  姓名
-                  <input
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal text-ink outline-none focus:border-brand"
-                    placeholder="如：内容运营 A"
-                  />
-                </label>
-                <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
-                  邮箱
-                  <input
-                    type="email"
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal text-ink outline-none focus:border-brand"
-                    placeholder="name@company.com"
-                  />
-                </label>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
-                    角色
-                    <select
-                      value={userRole}
-                      onChange={(e) => setUserRole(e.target.value as ManageableUserRole)}
-                      className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal text-ink outline-none focus:border-brand"
-                    >
-                      {manageableUserRoleOptions.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="grid gap-1.5 text-xs font-medium text-ink-muted">
-                    状态
-                    <select
-                      value={userStatus}
-                      onChange={(e) => setUserStatus(e.target.value as ConsoleUserStatus)}
-                      className="rounded-xl border border-line bg-white px-4 py-3 text-sm font-normal text-ink outline-none focus:border-brand"
-                    >
-                      <option value="active">启用</option>
-                      <option value="paused">停用</option>
-                    </select>
-                  </label>
-                </div>
-                <button
-                  type="submit"
-                  className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-white transition hover:opacity-90"
-                >
-                  {userEditingId ? "保存修改" : "新增用户"}
-                </button>
-              </div>
-            </form>
-
-            <div className="rounded-2xl border border-line bg-surface p-5">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <h3 className="text-sm font-bold">当前品牌用户</h3>
-                <span className="text-xs text-ink-muted">{consoleUsers.length} 人</span>
-              </div>
-              <div className="grid gap-3">
-                {consoleUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="rounded-2xl border border-line bg-bg px-4 py-3"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold">{user.name}</p>
-                        <p className="mt-1 text-xs text-ink-muted">{user.email}</p>
-                      </div>
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <span className="rounded-full bg-surface px-2.5 py-1 text-xs text-ink-soft">
-                          {userRoleLabels[user.role]}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-xs ${
-                            user.status === "active"
-                              ? "bg-brand-soft text-brand"
-                              : "bg-warn-soft text-warn"
-                          }`}
-                        >
-                          {userStatusLabels[user.status]}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-                      <p className="text-xs text-ink-muted">最近活跃：{user.lastActiveAt}</p>
-                      {user.role === "owner" ? (
-                        <p className="text-xs text-ink-muted">负责人账号保留</p>
-                      ) : (
-                        <div className="flex flex-wrap gap-3 text-xs">
-                          <button
-                            type="button"
-                            onClick={() => startUserEdit(user)}
-                            className="font-medium text-brand"
-                          >
-                            编辑
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleUserStatus(user.id)}
-                            className="font-medium text-ink-muted transition hover:text-brand"
-                          >
-                            {user.status === "active" ? "停用" : "启用"}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removeConsoleUser(user.id)}
-                            className="font-medium text-warn"
-                          >
-                            删除
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-      </section>
+      <AdminManagement
+        brandId={brand.id}
+        isOwner={hasOwnerRole(session?.roles)}
+        accounts={adminAccounts}
+        onAccountsChange={updateAdminAccounts}
+      />
 
       <section>
         <div className="mb-6">
