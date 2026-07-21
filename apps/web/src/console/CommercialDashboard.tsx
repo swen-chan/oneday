@@ -77,6 +77,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
   const [revenueProducts, setRevenueProducts] = useState<RevenueProductId[]>(
     revenueProductOptions.map((product) => product.id),
   );
+  const [activeRevenueMonth, setActiveRevenueMonth] = useState<number | null>(null);
   const [supplyProducts, setSupplyProducts] = useState<SupplyProductId[]>(
     supplyProductOptions.map((product) => product.id),
   );
@@ -297,25 +298,61 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
           <div className="overflow-x-auto pb-1">
             <div className="grid min-w-[720px] grid-cols-12 gap-2" aria-label="月度营收柱状图">
               {revenueResult.months.map((month) => {
-                const height = month.amount === null ? 18 : Math.max(12, (month.amount / maxRevenue) * 148);
+                const valueLabel = month.amount === null ? "未发生" : formatCurrency(month.amount);
+                const height =
+                  month.amount === null
+                    ? 18
+                    : month.amount === 0
+                      ? 0
+                      : Math.max(8, Math.round((month.amount / maxRevenue) * 144));
+                const tooltipVisible =
+                  month.amount !== null && activeRevenueMonth === month.month;
                 return (
-                  <div key={month.month} className="flex min-h-52 flex-col justify-end text-center">
-                    <p className="mb-2 h-8 text-[10px] leading-4 text-ink-muted">
-                      {month.amount === null ? "未发生" : formatCurrency(month.amount)}
-                    </p>
+                  <button
+                    key={month.month}
+                    type="button"
+                    data-testid={`revenue-month-${month.month}`}
+                    aria-label={`${month.month} 月，${valueLabel}`}
+                    aria-expanded={month.amount === null ? undefined : tooltipVisible}
+                    onMouseEnter={() =>
+                      month.amount !== null && setActiveRevenueMonth(month.month)
+                    }
+                    onMouseLeave={() => setActiveRevenueMonth(null)}
+                    onFocus={() => month.amount !== null && setActiveRevenueMonth(month.month)}
+                    onBlur={() => setActiveRevenueMonth(null)}
+                    onClick={() => month.amount !== null && setActiveRevenueMonth(month.month)}
+                    className="group flex min-h-52 flex-col justify-end text-center outline-none"
+                  >
+                    <div className="relative mb-2 flex h-9 items-center justify-center">
+                      {month.amount === null ? (
+                        <span className="text-[10px] leading-4 text-ink-muted">未发生</span>
+                      ) : (
+                        <span
+                          role="tooltip"
+                          aria-hidden={!tooltipVisible}
+                          data-testid={`revenue-tooltip-${month.month}`}
+                          className={`whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-[10px] font-medium text-white shadow-sm transition-opacity ${
+                            tooltipVisible ? "opacity-100" : "opacity-0"
+                          }`}
+                        >
+                          {valueLabel}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex h-36 items-end justify-center rounded-xl bg-bg px-2">
                       <div
+                        data-testid={`revenue-bar-${month.month}`}
+                        aria-hidden="true"
                         className={`w-full rounded-t-lg transition-all ${
                           month.amount === null
                             ? "border border-dashed border-line bg-transparent"
-                            : "bg-brand"
+                            : "bg-brand group-focus-visible:ring-2 group-focus-visible:ring-brand/30"
                         }`}
                         style={{ height }}
-                        title={month.amount === null ? "未发生" : formatCurrency(month.amount)}
                       />
                     </div>
                     <p className="mt-2 text-xs text-ink-muted">{month.month} 月</p>
-                  </div>
+                  </button>
                 );
               })}
             </div>

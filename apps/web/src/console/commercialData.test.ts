@@ -63,6 +63,14 @@ describe("commercial console data", () => {
 
   it("returns monthly revenue by year, kind and selected products with future months null", () => {
     const allProducts = revenueProductOptions.map((product) => product.id);
+    const subscription = getRevenueSeries(
+      dataset,
+      ownerAccess,
+      "all",
+      2026,
+      "subscription",
+      allProducts,
+    ).months;
     const currentYear = getRevenueSeries(
       dataset,
       ownerAccess,
@@ -78,6 +86,22 @@ describe("commercial console data", () => {
       2026,
       "product",
       ["essential-oil"],
+    ).months;
+    const offlineCampOnly = getRevenueSeries(
+      dataset,
+      ownerAccess,
+      "all",
+      2026,
+      "product",
+      ["camp"],
+    ).months;
+    const onlineCampOnly = getRevenueSeries(
+      dataset,
+      ownerAccess,
+      "all",
+      2026,
+      "product",
+      ["online-camp"],
     ).months;
     const previousYear = getRevenueSeries(
       dataset,
@@ -100,6 +124,15 @@ describe("commercial console data", () => {
     ]);
     expect((currentYear[6].amount ?? 0) > (essentialOilOnly[6].amount ?? 0)).toBe(true);
     expect(previousYear.every((month) => typeof month.amount === "number")).toBe(true);
+    expect(revenueProductOptions.map((product) => product.name)).toContain("线上营");
+
+    const normalizedShape = (months: typeof currentYear) => {
+      const amounts = months.slice(0, 7).map((month) => month.amount ?? 0);
+      const maximum = Math.max(...amounts, 1);
+      return amounts.map((amount) => Number((amount / maximum).toFixed(3)));
+    };
+    expect(normalizedShape(subscription)).not.toEqual(normalizedShape(currentYear));
+    expect(normalizedShape(offlineCampOnly)).not.toEqual(normalizedShape(onlineCampOnly));
   });
 
   it("filters supply by the product-brand intersection and applies every formula", () => {

@@ -10,6 +10,7 @@ export type RevenueKind = "subscription" | "product";
 
 export const revenueProductOptions = [
   { id: "camp", name: "线下营", category: "内容产品" },
+  { id: "online-camp", name: "线上营", category: "内容产品" },
   { id: "essential-oil", name: "精油", category: "实物产品" },
   { id: "tea", name: "茶包", category: "实物产品" },
   { id: "fragrance", name: "香氛", category: "实物产品" },
@@ -17,7 +18,7 @@ export const revenueProductOptions = [
 ] as const;
 
 export type RevenueProductId = (typeof revenueProductOptions)[number]["id"];
-export type SupplyProductId = Exclude<RevenueProductId, "camp">;
+export type SupplyProductId = Exclude<RevenueProductId, "camp" | "online-camp">;
 
 export const supplyBrandOptions: Record<
   SupplyProductId,
@@ -48,7 +49,7 @@ export const supplyBrandOptions: Record<
 export const supplyProductOptions = revenueProductOptions.filter(
   (product): product is (typeof revenueProductOptions)[number] & {
     id: SupplyProductId;
-  } => product.id !== "camp",
+  } => product.id !== "camp" && product.id !== "online-camp",
 );
 
 export interface ConsoleAccess {
@@ -167,10 +168,24 @@ const hotelMemberBases: Record<
 
 const productRevenueBases: Record<RevenueProductId, number> = {
   camp: 92000,
+  "online-camp": 68000,
   "essential-oil": 46000,
   tea: 28000,
   fragrance: 39000,
   alcohol: 33000,
+};
+
+const subscriptionSeasonality = [
+  0.9, 0.94, 0.99, 1.03, 1.07, 1.1, 1.14, 1.12, 1.08, 1.13, 1.18, 1.24,
+] as const;
+
+const productSeasonality: Record<RevenueProductId, readonly number[]> = {
+  camp: [0.62, 0.7, 1.34, 0.82, 0.95, 1.08, 1.48, 0.76, 0.9, 1.32, 0.86, 1.12],
+  "online-camp": [1.12, 0.92, 0.86, 1.24, 0.9, 0.95, 1.02, 0.88, 1.33, 0.98, 0.91, 1.18],
+  "essential-oil": [1.18, 1.1, 0.94, 0.86, 0.82, 0.79, 0.77, 0.81, 0.9, 1.02, 1.15, 1.28],
+  tea: [0.82, 0.9, 1.22, 1.28, 1.12, 0.94, 0.83, 0.8, 1.18, 1.26, 1.08, 0.92],
+  fragrance: [0.91, 0.88, 0.96, 1.12, 1.2, 1.05, 0.9, 0.87, 0.98, 1.14, 1.32, 1.44],
+  alcohol: [1.36, 1.18, 0.84, 0.78, 0.82, 0.9, 0.88, 0.92, 1.28, 1.05, 1.12, 1.5],
 };
 
 const supplyTemplates: Record<
@@ -217,10 +232,6 @@ function rounded(value: number) {
   return Math.round(value);
 }
 
-function monthSeasonality(month: number) {
-  return 1 + ((month % 4) - 1.5) * 0.035 + (month >= 5 && month <= 8 ? 0.08 : 0);
-}
-
 export function createCommercialDataset(brandId: string): CommercialDataset {
   const brandFactor = hashBrandFactor(brandId);
   const memberMetrics: MemberMetric[] = [];
@@ -252,7 +263,7 @@ export function createCommercialDataset(brandId: string): CommercialDataset {
       const year = Number(yearText);
       const yearFactor = year === 2026 ? 1.12 : 1;
       for (let month = 1; month <= occurredMonths; month += 1) {
-        const monthlyFactor = monthSeasonality(month);
+        const subscriptionMonthlyFactor = subscriptionSeasonality[month - 1];
         revenueRecords.push({
           brandId,
           hotelId: hotel.id,
@@ -260,13 +271,14 @@ export function createCommercialDataset(brandId: string): CommercialDataset {
           month,
           kind: "subscription",
           amount: rounded(
-            118000 * hotelMultipliers[hotel.id] * brandFactor * yearFactor * monthlyFactor,
+            118000 *
+              hotelMultipliers[hotel.id] *
+              brandFactor *
+              yearFactor *
+              subscriptionMonthlyFactor,
           ),
         });
         for (const product of revenueProductOptions) {
-          const productIndex = revenueProductOptions.findIndex(
-            (option) => option.id === product.id,
-          );
           revenueRecords.push({
             brandId,
             hotelId: hotel.id,
@@ -279,7 +291,7 @@ export function createCommercialDataset(brandId: string): CommercialDataset {
                 hotelMultipliers[hotel.id] *
                 brandFactor *
                 yearFactor *
-                (monthlyFactor + productIndex * 0.012),
+                productSeasonality[product.id][month - 1],
             ),
           });
         }

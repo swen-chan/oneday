@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CommercialDashboard } from "./CommercialDashboard";
 
@@ -43,5 +43,35 @@ describe("commercial dashboard hotel visibility", () => {
     expect(screen.getByRole("option", { name: "君亭酒店" })).toBeTruthy();
     expect(screen.getByText("本月订阅营收")).toBeTruthy();
     expect(screen.getByText("本月产品营收")).toBeTruthy();
+  });
+
+  it("uses revenue-specific bar heights and reveals exact amounts on hover or focus", () => {
+    render(
+      <CommercialDashboard
+        brandId="brand-test"
+        access={{ role: "owner", allowedHotelIds: ["wumingchu", "junting"] }}
+      />,
+    );
+
+    const subscriptionHeights = Array.from({ length: 7 }, (_, index) =>
+      screen.getByTestId(`revenue-bar-${index + 1}`).style.height,
+    );
+    const january = screen.getByTestId("revenue-month-1");
+    const januaryTooltip = screen.getByTestId("revenue-tooltip-1");
+
+    expect(januaryTooltip.className).toContain("opacity-0");
+    fireEvent.mouseEnter(january);
+    expect(januaryTooltip.className).toContain("opacity-100");
+    fireEvent.mouseLeave(january);
+    expect(januaryTooltip.className).toContain("opacity-0");
+    fireEvent.focus(january);
+    expect(januaryTooltip.className).toContain("opacity-100");
+
+    fireEvent.click(screen.getByRole("button", { name: "产品营收" }));
+    expect(screen.getByRole("button", { name: "线上营" })).toBeTruthy();
+    const productHeights = Array.from({ length: 7 }, (_, index) =>
+      screen.getByTestId(`revenue-bar-${index + 1}`).style.height,
+    );
+    expect(productHeights).not.toEqual(subscriptionHeights);
   });
 });
