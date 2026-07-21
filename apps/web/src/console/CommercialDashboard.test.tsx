@@ -10,45 +10,64 @@ describe("commercial dashboard hotel visibility", () => {
 
   it("safe-falls back when a hotel admin tampers with stored selection", async () => {
     window.localStorage.setItem(
-      "oneday-console-hotel-selection:brand-test",
+      "oneday-console-hotel-selection:brand-test:hotel-admin%40oneday.demo",
       "junting",
     );
     render(
       <CommercialDashboard
         brandId="brand-test"
+        accountId="hotel-admin@oneday.demo"
         access={{ role: "operator", allowedHotelIds: ["wumingchu"] }}
       />,
     );
 
     await waitFor(() =>
       expect(
-        window.localStorage.getItem("oneday-console-hotel-selection:brand-test"),
+        window.localStorage.getItem(
+          "oneday-console-hotel-selection:brand-test:hotel-admin%40oneday.demo",
+        ),
       ).toBe("wumingchu"),
     );
     expect(screen.getAllByText("无名初酒店").length).toBeGreaterThan(0);
     expect(screen.queryByRole("option", { name: "君亭酒店" })).toBeNull();
   });
 
-  it("lets the owner aggregate or select either hotel", () => {
+  it("defaults the owner to all hotels without inheriting another account's selection", async () => {
+    window.localStorage.setItem("oneday-console-hotel-selection:brand-test", "wumingchu");
+    window.localStorage.setItem(
+      "oneday-console-hotel-selection:brand-test:hotel-admin%40oneday.demo",
+      "wumingchu",
+    );
     render(
       <CommercialDashboard
         brandId="brand-test"
+        accountId="owner@oneday.demo"
         access={{ role: "owner", allowedHotelIds: ["wumingchu", "junting"] }}
       />,
     );
-    const selector = screen.getByLabelText("酒店范围");
+    const selector = screen.getByLabelText("酒店范围") as HTMLSelectElement;
     expect(selector).toBeTruthy();
+    expect(selector.value).toBe("all");
     expect(screen.getByRole("option", { name: "全部酒店" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "无名初酒店" })).toBeTruthy();
     expect(screen.getByRole("option", { name: "君亭酒店" })).toBeTruthy();
     expect(screen.getByText("本月订阅营收")).toBeTruthy();
     expect(screen.getByText("本月产品营收")).toBeTruthy();
+    await waitFor(() =>
+      expect(
+        window.localStorage.getItem(
+          "oneday-console-hotel-selection:brand-test:owner%40oneday.demo",
+        ),
+      ).toBe("all"),
+    );
+    expect(window.localStorage.getItem("oneday-console-hotel-selection:brand-test")).toBeNull();
   });
 
   it("uses revenue-specific bar heights and reveals exact amounts on hover or focus", () => {
     render(
       <CommercialDashboard
         brandId="brand-test"
+        accountId="owner@oneday.demo"
         access={{ role: "owner", allowedHotelIds: ["wumingchu", "junting"] }}
       />,
     );
@@ -87,6 +106,7 @@ describe("commercial dashboard hotel visibility", () => {
     render(
       <CommercialDashboard
         brandId="brand-test"
+        accountId="owner@oneday.demo"
         access={{ role: "owner", allowedHotelIds: ["wumingchu", "junting"] }}
       />,
     );

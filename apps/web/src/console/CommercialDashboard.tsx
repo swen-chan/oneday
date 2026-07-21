@@ -22,6 +22,7 @@ import {
 
 interface CommercialDashboardProps {
   brandId: string;
+  accountId: string;
   access: ConsoleAccess;
 }
 
@@ -37,13 +38,21 @@ const replenishmentClasses: Record<ReplenishmentStatus, string> = {
   healthy: "bg-brand-soft text-brand",
 };
 
-function hotelSelectionStorageKey(brandId: string) {
+function hotelSelectionStorageKey(brandId: string, accountId: string) {
+  return `oneday-console-hotel-selection:${brandId}:${encodeURIComponent(accountId.trim().toLowerCase())}`;
+}
+
+function legacyHotelSelectionStorageKey(brandId: string) {
   return `oneday-console-hotel-selection:${brandId}`;
 }
 
-function initialHotelSelection(brandId: string, access: ConsoleAccess): HotelSelection {
+function initialHotelSelection(
+  brandId: string,
+  accountId: string,
+  access: ConsoleAccess,
+): HotelSelection {
   if (typeof window !== "undefined") {
-    const stored = window.localStorage.getItem(hotelSelectionStorageKey(brandId));
+    const stored = window.localStorage.getItem(hotelSelectionStorageKey(brandId, accountId));
     if (stored) return stored as HotelSelection;
   }
   if (access.role === "owner" || access.allowedHotelIds.length > 1) return "all";
@@ -75,10 +84,10 @@ function productName(productId: RevenueProductId) {
   return revenueProductOptions.find((product) => product.id === productId)?.name ?? productId;
 }
 
-export function CommercialDashboard({ brandId, access }: CommercialDashboardProps) {
+export function CommercialDashboard({ brandId, accountId, access }: CommercialDashboardProps) {
   const dataset = useMemo(() => createCommercialDataset(brandId), [brandId]);
   const [hotelSelection, setHotelSelection] = useState<HotelSelection>(() =>
-    initialHotelSelection(brandId, access),
+    initialHotelSelection(brandId, accountId, access),
   );
   const [revenueYear, setRevenueYear] = useState(2026);
   const [revenueKind, setRevenueKind] = useState<RevenueKind>("subscription");
@@ -116,11 +125,12 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
   }, [effectiveSelection, hotelSelection]);
 
   useEffect(() => {
+    window.localStorage.removeItem(legacyHotelSelectionStorageKey(brandId));
     window.localStorage.setItem(
-      hotelSelectionStorageKey(brandId),
+      hotelSelectionStorageKey(brandId, accountId),
       effectiveSelection,
     );
-  }, [brandId, effectiveSelection]);
+  }, [accountId, brandId, effectiveSelection]);
 
   const allowedHotelIds =
     access.role === "owner"

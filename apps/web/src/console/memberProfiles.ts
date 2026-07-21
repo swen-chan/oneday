@@ -47,6 +47,8 @@ const feedbackOptions = [
   "六件小事都完成了，明天不加码，只想继续一次。",
 ] as const;
 
+const dayMilliseconds = 24 * 60 * 60 * 1000;
+
 function stableHash(value: string) {
   let hash = 2166136261;
   for (const character of value) {
@@ -62,6 +64,15 @@ function dateKeyDaysBefore(referenceDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function memberActivityLayer(member: HealthMemberInput, referenceDate: string) {
+  const idleDays =
+    (new Date(referenceDate).getTime() - new Date(member.lastActiveAt).getTime()) /
+    dayMilliseconds;
+  if (idleDays <= 7) return "active";
+  if (idleDays <= 30) return "cooling";
+  return "sleeping";
+}
+
 export function buildSyntheticMemberProfile(
   member: HealthMemberInput,
   referenceDate: string,
@@ -75,7 +86,7 @@ export function buildSyntheticMemberProfile(
     };
   });
   const totalDays = [7, 14, 21][seed % 3];
-  const checked = seed % 3 !== 0;
+  const checked = memberActivityLayer(member, referenceDate) === "active" && seed % 3 !== 0;
 
   return {
     displayName: member.displayName ?? member.alias,
