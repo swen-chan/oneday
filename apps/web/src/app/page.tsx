@@ -2,7 +2,8 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AdminManagement } from "../console/AdminManagement";
+import { AdminManagementDialog } from "../console/AdminManagementDialog";
+import { MemberDetailDialog } from "../console/MemberDetailDialog";
 import {
   authenticateAdminAccount,
   demoPasswordDigest,
@@ -265,6 +266,8 @@ export function RoleRoutedDemo({
   const [customPackageDays, setCustomPackageDays] = useState(7);
   const [generatedPackageName, setGeneratedPackageName] = useState("");
   const [expandedLayers, setExpandedLayers] = useState<Record<string, boolean>>({});
+  const [selectedHealthMember, setSelectedHealthMember] = useState<Member | null>(null);
+  const [adminManagementOpen, setAdminManagementOpen] = useState(false);
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -346,6 +349,8 @@ export function RoleRoutedDemo({
       setCalendar(null);
       setGeneratedPackageName("");
       setExpandedLayers({});
+      setSelectedHealthMember(null);
+      setAdminManagementOpen(false);
     } catch {
       setError("载入品牌数据失败");
     } finally {
@@ -851,13 +856,34 @@ export function RoleRoutedDemo({
             </span>
           </div>
         </div>
-        <button
-          onClick={logout}
-          className="text-sm text-ink-muted transition hover:text-ink"
-        >
-          退出账号 ↩
-        </button>
+        <div className="flex items-center gap-4">
+          {hasOwnerRole(session?.roles) && (
+            <button
+              type="button"
+              onClick={() => setAdminManagementOpen(true)}
+              className="text-sm text-ink-muted transition hover:text-brand"
+            >
+              管理员权限
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm text-ink-muted transition hover:text-ink"
+          >
+            退出账号 ↩
+          </button>
+        </div>
       </header>
+
+      {adminManagementOpen && hasOwnerRole(session?.roles) && (
+        <AdminManagementDialog
+          brandId={brand.id}
+          accounts={adminAccounts}
+          onAccountsChange={updateAdminAccounts}
+          onClose={() => setAdminManagementOpen(false)}
+        />
+      )}
 
       {error && (
         <p className="mb-6 rounded-xl bg-warn-soft px-4 py-3 text-sm text-warn">{error}</p>
@@ -914,11 +940,18 @@ export function RoleRoutedDemo({
                     }`}
                   >
                     {visibleMembers.map((m) => (
-                      <li key={m.alias} className="flex items-center justify-between text-sm">
-                        <span>{m.displayName ?? m.alias}</span>
-                        <span className="text-xs text-ink-muted">
-                          {daysAgo(m.lastActiveAt, dashboard.referenceDate)}
-                        </span>
+                      <li key={m.alias}>
+                        <button
+                          type="button"
+                          aria-label={`查看${m.displayName ?? m.alias}详情`}
+                          onClick={() => setSelectedHealthMember(m)}
+                          className="flex w-full items-center justify-between rounded-xl px-2 py-1.5 text-left text-sm transition hover:bg-bg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/30"
+                        >
+                          <span>{m.displayName ?? m.alias}</span>
+                          <span className="text-xs text-ink-muted">
+                            {daysAgo(m.lastActiveAt, dashboard.referenceDate)}
+                          </span>
+                        </button>
                       </li>
                     ))}
                     {members.length > 8 && (
@@ -946,12 +979,13 @@ export function RoleRoutedDemo({
         </section>
       )}
 
-      <AdminManagement
-        brandId={brand.id}
-        isOwner={hasOwnerRole(session?.roles)}
-        accounts={adminAccounts}
-        onAccountsChange={updateAdminAccounts}
-      />
+      {selectedHealthMember && dashboard && (
+        <MemberDetailDialog
+          member={selectedHealthMember}
+          referenceDate={dashboard.referenceDate}
+          onClose={() => setSelectedHealthMember(null)}
+        />
+      )}
 
       <section>
         <div className="mb-6">

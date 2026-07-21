@@ -62,6 +62,8 @@ describe("commercial dashboard hotel visibility", () => {
 
     expect(screen.getByLabelText("月度营收纵轴")).toBeTruthy();
     expect(screen.getByTestId("revenue-axis-label-2").textContent).toBe("¥0");
+    expect(screen.queryByText("未发生")).toBeNull();
+    expect(screen.getByTestId("revenue-bar-8").style.height).toBe("0px");
     expect(filterStrip.className).toContain("h-10");
     expect(within(filterStrip).queryByRole("button")).toBeNull();
     expect(januaryTooltip.className).toContain("opacity-0");
@@ -91,11 +93,11 @@ describe("commercial dashboard hotel visibility", () => {
 
     expect(screen.queryByText("品牌（多选）")).toBeNull();
     expect(screen.queryByRole("button", { name: "雾岚植萃" })).toBeNull();
-    expect(screen.getAllByText("雾岚植萃").length).toBeGreaterThan(0);
+    expect(screen.getByText("请选择要查看的产品")).toBeTruthy();
+    expect(screen.getByText("0 条产品品牌记录")).toBeTruthy();
+    expect(screen.queryByText("雾岚植萃")).toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "茶包" }));
-    fireEvent.click(screen.getByRole("button", { name: "香氛" }));
-    fireEvent.click(screen.getByRole("button", { name: "酒" }));
+    fireEvent.click(screen.getByRole("button", { name: "精油" }));
 
     expect(screen.getByText("3 条产品品牌记录")).toBeTruthy();
     expect(screen.queryByText("栖茶研究所")).toBeNull();

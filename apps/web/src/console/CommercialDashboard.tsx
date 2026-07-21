@@ -86,9 +86,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
     revenueProductOptions.map((product) => product.id),
   );
   const [activeRevenueMonth, setActiveRevenueMonth] = useState<number | null>(null);
-  const [supplyProducts, setSupplyProducts] = useState<SupplyProductId[]>(
-    supplyProductOptions.map((product) => product.id),
-  );
+  const [supplyProducts, setSupplyProducts] = useState<SupplyProductId[]>([]);
   const allSupplyBrandIds = useMemo(
     () => Object.values(supplyBrandOptions).flatMap((brands) => brands.map((brand) => brand.id)),
     [],
@@ -247,7 +245,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
             <div>
               <p className="text-sm font-bold">年度月度营收</p>
               <p className="mt-1 text-xs text-ink-muted">
-                {scopeLabel} · 未来月份标记为“未发生”
+                {scopeLabel} · 未来月份保持留空
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -327,10 +325,10 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
                   <span className="absolute inset-x-0 bottom-0 border-t border-line" />
                 </div>
                 {revenueResult.months.map((month) => {
-                  const valueLabel = month.amount === null ? "未发生" : formatCurrency(month.amount);
+                  const valueLabel = month.amount === null ? "暂无数据" : formatCurrency(month.amount);
                   const height =
                     month.amount === null
-                      ? 18
+                      ? 0
                       : month.amount === 0
                         ? 0
                         : Math.max(8, Math.round((month.amount / maxRevenue) * 144));
@@ -353,9 +351,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
                       className="group relative flex min-h-52 flex-col justify-end text-center outline-none"
                     >
                       <div className="relative mb-2 flex h-9 items-center justify-center">
-                        {month.amount === null ? (
-                          <span className="text-[10px] leading-4 text-ink-muted">未发生</span>
-                        ) : (
+                        {month.amount !== null ? (
                           <span
                             role="tooltip"
                             aria-hidden={!tooltipVisible}
@@ -366,7 +362,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
                           >
                             {valueLabel}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <div className="flex h-36 items-end justify-center px-2">
                         <div
@@ -374,7 +370,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
                           aria-hidden="true"
                           className={`w-full rounded-t-lg transition-all ${
                             month.amount === null
-                              ? "border border-dashed border-line bg-surface"
+                              ? "bg-transparent"
                               : "bg-brand group-focus-visible:ring-2 group-focus-visible:ring-brand/30"
                           }`}
                           style={{ height }}
@@ -406,10 +402,10 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
           </div>
           <button
             type="button"
-            onClick={() => setSupplyProducts(supplyProductOptions.map((product) => product.id))}
+            onClick={() => setSupplyProducts([])}
             className="rounded-full border border-line px-4 py-2 text-xs font-medium text-ink-muted transition hover:border-brand hover:text-brand"
           >
-            重置筛选
+            清空筛选
           </button>
         </div>
 
@@ -451,8 +447,8 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
 
         {supplyResult.rows.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-line bg-surface px-6 py-12 text-center">
-            <p className="text-sm font-bold">当前筛选没有供应链记录</p>
-            <p className="mt-2 text-xs text-ink-muted">重新选择产品，查看对应品牌的价格、销售与库存。</p>
+            <p className="text-sm font-bold">请选择要查看的产品</p>
+            <p className="mt-2 text-xs text-ink-muted">选择后将显示对应品牌的价格、销售与库存记录。</p>
           </div>
         ) : (
           <>

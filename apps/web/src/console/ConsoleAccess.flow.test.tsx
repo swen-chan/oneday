@@ -114,11 +114,43 @@ describe("console login and role routing", () => {
     expect(await screen.findByRole("heading", { name: "经营总览" })).toBeTruthy();
     expect(screen.getAllByText("无名初酒店").length).toBeGreaterThan(0);
     expect(screen.queryByRole("option", { name: "君亭酒店" })).toBeNull();
-    expect(screen.getByText("仅品牌负责人可管理管理员")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "管理员权限" })).toBeNull();
     const healthMember = (await screen.findByText("松林会员")).closest("li");
     expect(healthMember).not.toBeNull();
     expect(within(healthMember as HTMLLIElement).getByText("今天")).toBeTruthy();
     expect(within(healthMember as HTMLLIElement).queryByText(/条/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "查看松林会员详情" }));
+    expect(await screen.findByRole("dialog", { name: "松林会员" })).toBeTruthy();
+    expect(screen.getByText("参加过的活动")).toBeTruthy();
+    expect(screen.getByText("正在进行")).toBeTruthy();
+    expect(screen.getByText("今日打卡")).toBeTruthy();
+    expect(screen.getByText(/不代表 C 端实时回写/)).toBeTruthy();
+  });
+
+  it("keeps administrator management behind the owner utility-bar dialog", async () => {
+    window.localStorage.setItem(
+      "oneday-demo-role-session",
+      JSON.stringify({
+        email: "jing@oneday.demo",
+        label: "JING 负责人账号",
+        roles: ["owner"],
+        brandId: brand.id,
+        brandName: brand.name,
+        allowedHotelIds: ["wumingchu", "junting"],
+      }),
+    );
+    const user = userEvent.setup();
+    render(<RoleRoutedDemo initialWorkspace="console" />);
+
+    expect(await screen.findByRole("heading", { name: "经营总览" })).toBeTruthy();
+    const managementButton = screen.getByRole("button", { name: "管理员权限" });
+    expect(screen.queryByLabelText("用户名")).toBeNull();
+    await user.click(managementButton);
+
+    expect(await screen.findByRole("dialog", { name: "管理员权限" })).toBeTruthy();
+    expect(screen.getByLabelText("用户名")).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "关闭管理员权限" }));
+    expect(screen.queryByRole("dialog", { name: "管理员权限" })).toBeNull();
   });
 
   it("does not let a member session trigger the commercial or group dashboard", async () => {
