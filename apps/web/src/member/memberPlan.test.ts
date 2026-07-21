@@ -19,6 +19,7 @@ import {
   memberJourneyDayNumber,
   memberJourneyDays,
   memberProgramStorageKey,
+  memberTaskCompletedDays,
   parseMemberProgramState,
   resetMemberDemoDay,
   serializeMemberProgramState,
@@ -117,16 +118,28 @@ describe("member 7-day date model", () => {
     expect(draft.draftCompletedTaskIds).toEqual(selectedIds);
     expect(draft.draftDateKey).toBe("2026-07-17");
 
-    const completed = completeMemberCheckin(draft, selectedIds, true, true, "2026-07-17");
+    const completed = completeMemberCheckin(
+      draft,
+      selectedIds,
+      false,
+      true,
+      "2026-07-17",
+      "challenging",
+    );
     const feedback = buildMemberFeedback(completed);
-    expect(feedback?.paragraphs.join(" ")).toMatch(/完成了 4 个行动/);
+    expect(feedback?.paragraphs.join(" ")).toMatch(/点亮了 4 个泡泡/);
+    expect(feedback?.nextStep).toMatch(/明天可以先从/);
     expect(completed.draftCompletedTaskIds).toEqual([]);
+    expect(completed.checkins[0].reflectionChoice).toBe("challenging");
+    expect(memberTaskCompletedDays(completed, selectedIds[0])).toBe(1);
+    expect(memberTaskCompletedDays(completed, "unknown-task")).toBe(0);
 
     const stored = serializeMemberProgramState(completed);
     expect(stored).not.toMatch(/晚上一直刷手机|请告诉我是不是生病了/);
     const refreshed = parseMemberProgramState(stored, "2026-07-17");
     expect(refreshed?.checkins).toHaveLength(1);
     expect(refreshed?.checkins[0].completedTaskIds).toHaveLength(4);
+    expect(refreshed?.checkins[0].reflectionChoice).toBe("challenging");
     expect(memberHomeRoute(refreshed)).toBe("/member/today");
     expect(memberHomeRoute(null)).toBe("/member/onboarding");
   });

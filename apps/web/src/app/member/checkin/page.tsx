@@ -1,5 +1,5 @@
-import { MemberWorkspace } from "@/member/MemberWorkspace";
+import { redirect } from "next/navigation";
 
 export default function MemberCheckinPage() {
-  return <MemberWorkspace view="checkin" />;
+  redirect("/member/today");
 }
