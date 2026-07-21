@@ -16,7 +16,6 @@ import {
   goalOptions,
   latestMemberCheckin,
   legacyMemberProgramStorageKey,
-  memberCheckinDraftForDate,
   memberCompletedDays,
   memberEffectiveTodayDateKey,
   memberHomeRoute,
@@ -40,6 +39,8 @@ import {
 import { MemberOutcome } from "./MemberOutcome";
 
 export type MemberWorkspaceView = "home" | "onboarding" | "today" | "checkin" | "feedback";
+
+const emptyMemberTaskIds: string[] = [];
 
 function readDemoSession(): DemoSessionLike | null {
   const raw = window.localStorage.getItem(demoSessionStorageKey);
@@ -324,22 +325,38 @@ function CheckinBubbleGroup({
 }) {
   const selectedTone =
     tone === "internal"
-      ? "border-brand bg-brand text-white"
-      : "border-warn bg-warn text-white";
+      ? "border-brand bg-[radial-gradient(circle_at_30%_20%,#7ca99b_0%,#4e7d6f_56%,#3f695d_100%)] text-white shadow-[0_18px_36px_rgba(78,125,111,0.28)]"
+      : "border-warn bg-[radial-gradient(circle_at_30%_20%,#d3ad72_0%,#b0813f_58%,#8f662e_100%)] text-white shadow-[0_18px_36px_rgba(176,129,63,0.25)]";
   const idleTone =
     tone === "internal"
-      ? "border-brand/30 bg-brand-soft"
-      : "border-warn/30 bg-warn-soft";
+      ? "border-brand/25 bg-[radial-gradient(circle_at_30%_18%,#ffffff_0%,#edf5f2_42%,#dbeae5_100%)] text-brand shadow-[0_12px_28px_rgba(78,125,111,0.12)]"
+      : "border-warn/25 bg-[radial-gradient(circle_at_30%_18%,#ffffff_0%,#fbf5ea_42%,#f1e2c7_100%)] text-warn shadow-[0_12px_28px_rgba(176,129,63,0.11)]";
+  const sectionTone =
+    tone === "internal"
+      ? "border-brand/15 bg-brand-soft/45"
+      : "border-warn/15 bg-warn-soft/45";
+  const bubbleLayouts = [
+    "motion-safe:-rotate-2 motion-safe:translate-y-2",
+    "motion-safe:-translate-y-1 motion-safe:scale-[1.03]",
+    "motion-safe:rotate-2 motion-safe:translate-y-3",
+  ];
 
   return (
-    <section aria-label={title}>
+    <section
+      aria-label={title}
+      className={`relative overflow-hidden rounded-[2rem] border p-4 sm:p-5 ${sectionTone}`}
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -right-7 -top-8 h-24 w-24 rounded-full border border-white/60 bg-white/20"
+      />
       <p
-        className={`mb-3 text-sm font-medium ${tone === "internal" ? "text-brand" : "text-warn"}`}
+        className={`relative mb-4 text-sm font-medium ${tone === "internal" ? "text-brand" : "text-warn"}`}
       >
         {title}
       </p>
-      <div className="grid grid-cols-3 gap-3">
-        {tasks.map((task) => {
+      <div className="relative flex flex-wrap items-center justify-center gap-2 sm:gap-3">
+        {tasks.map((task, index) => {
           const checked = checkedIds.includes(task.id);
           const completedDays = memberTaskCompletedDays(program, task.id);
           return (
@@ -350,22 +367,38 @@ function CheckinBubbleGroup({
               aria-label={`${task.title}，${checked ? "今日已完成" : "今日未完成"}，累计 ${completedDays}/7 天`}
               disabled={disabled}
               onClick={() => onToggle(task.id)}
-              className={`relative min-h-36 overflow-hidden rounded-[2.75rem] border px-3 py-5 text-center transition duration-300 motion-safe:hover:-translate-y-1 motion-reduce:transition-none disabled:cursor-default ${
+              data-testid="checkin-bubble"
+              data-bubble-index={index}
+              className={`group relative aspect-square w-[calc(50%-0.25rem)] overflow-hidden rounded-full border px-3 py-3 text-center transition duration-300 sm:w-[calc(33.333%-0.5rem)] motion-safe:hover:-translate-y-2 motion-safe:hover:scale-[1.06] motion-safe:active:scale-95 motion-reduce:transform-none motion-reduce:transition-none disabled:cursor-default ${bubbleLayouts[index]} ${
                 checked ? selectedTone : idleTone
               }`}
             >
-              {checked ? (
-                <>
-                  <span className="absolute left-4 top-4 h-2 w-2 rounded-full bg-white/70 motion-safe:animate-ping motion-reduce:animate-none" />
-                  <span className="absolute right-5 top-8 h-1.5 w-1.5 rounded-full bg-white/60 motion-safe:animate-pulse motion-reduce:animate-none" />
-                </>
-              ) : null}
-              <span className="relative block text-lg font-bold">{checked ? "✓" : "○"}</span>
-              <span className="relative mt-2 block text-xs font-bold leading-5">{task.title}</span>
               <span
-                className={`relative mt-2 block text-[10px] ${checked ? "text-white/75" : "text-ink-muted"}`}
+                aria-hidden="true"
+                className={`absolute left-[18%] top-[10%] h-[24%] w-[34%] -rotate-[24deg] rounded-full blur-[1px] ${
+                  checked ? "bg-white/35" : "bg-white/80"
+                }`}
+              />
+              <span
+                aria-hidden="true"
+                className={`absolute bottom-[18%] right-[12%] h-2.5 w-2.5 rounded-full border ${
+                  checked ? "border-white/55 bg-white/20" : "border-current/20 bg-white/50"
+                } motion-safe:group-hover:-translate-y-2 motion-safe:group-hover:translate-x-1 motion-reduce:transform-none`}
+              />
+              <span
+                className={`relative mx-auto flex h-8 w-8 items-center justify-center rounded-full text-base font-bold transition motion-reduce:transition-none ${
+                  checked ? "bg-white/20 text-white" : "bg-white/70"
+                }`}
               >
-                已完成 {completedDays}/7 天
+                {checked ? "✓" : "✦"}
+              </span>
+              <span className="relative mx-auto mt-1.5 block max-w-[7.5rem] text-[11px] font-bold leading-4 sm:text-xs sm:leading-5">
+                {task.title}
+              </span>
+              <span
+                className={`relative mt-1 block text-[9px] sm:text-[10px] ${checked ? "text-white/75" : "text-ink-muted"}`}
+              >
+                累计 {completedDays}/7
               </span>
             </button>
           );
@@ -384,18 +417,16 @@ function journeyDayLabel(day: MemberJourneyDay) {
 
 function JourneyGrid({
   days,
-  selectedDay,
-  onSelect,
+  onInspect,
 }: {
   days: MemberJourneyDay[];
-  selectedDay?: number;
-  onSelect?: (day: number) => void;
+  onInspect?: (day: MemberJourneyDay) => void;
 }) {
   return (
     <div className="grid grid-cols-4 gap-2 sm:grid-cols-7" aria-label="7 天旅程">
       {days.map((day) => {
-        const selected = selectedDay === day.day;
-        const disabled = day.status === "locked" || !onSelect;
+        const inspectable = Boolean(onInspect) && !day.isToday && day.status !== "locked";
+        const disabled = !inspectable;
         const tone =
           day.status === "recorded"
             ? "border-brand bg-brand text-white"
@@ -418,12 +449,12 @@ function JourneyGrid({
             type="button"
             disabled={disabled}
             aria-current={day.isToday ? "step" : undefined}
-            aria-pressed={onSelect ? selected : undefined}
+            aria-haspopup={inspectable ? "dialog" : undefined}
             aria-label={`Day ${day.day}，${formatMemberDate(day.dateKey)}，${journeyDayLabel(day)}`}
-            onClick={() => onSelect?.(day.day)}
+            onClick={() => inspectable && onInspect?.(day)}
             className={`min-h-16 rounded-2xl border px-1.5 py-2 text-center transition ${tone} ${
-              selected ? "ring-2 ring-brand ring-offset-2" : ""
-            } ${disabled ? "cursor-default" : "hover:-translate-y-0.5"}`}
+              disabled ? "cursor-default" : "hover:-translate-y-0.5 hover:shadow-sm"
+            }`}
           >
             <span className="block text-xs font-bold">Day {day.day}</span>
             <span className="mt-1 block text-[11px] font-medium">{icon}</span>
@@ -444,11 +475,8 @@ function JourneyDayDetail({
   const checkin = journeyDay.checkin;
   if (!checkin) {
     return (
-      <div className="rounded-3xl border border-line bg-surface p-6">
-        <p className="text-sm font-medium text-brand">
-          Day {journeyDay.day} · {formatMemberDate(journeyDay.dateKey)}
-        </p>
-        <h3 className="mt-2 text-xl font-bold">{journeyDayLabel(journeyDay)}</h3>
+      <div className="rounded-3xl bg-bg p-5">
+        <h3 className="text-lg font-bold">{journeyDayLabel(journeyDay)}</h3>
         <p className="mt-3 text-sm leading-6 text-ink-soft">
           {journeyDay.status === "missed"
             ? "这一天没有记录，不影响你继续旅程。"
@@ -467,11 +495,8 @@ function JourneyDayDetail({
   const feedback = buildMemberFeedback(program, checkin);
 
   return (
-    <div className="rounded-3xl border border-brand/20 bg-surface p-6">
-      <p className="text-sm font-medium text-brand">
-        Day {checkin.day} · {formatMemberDate(checkin.dateKey)}
-      </p>
-      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+    <div>
+      <div className="flex flex-wrap gap-2 text-xs">
         <span className="rounded-full bg-brand-soft px-3 py-2 text-brand">
           共完成 {completedTasks.length} 项
         </span>
@@ -509,6 +534,63 @@ function JourneyDayDetail({
   );
 }
 
+function JourneyDayDialog({
+  program,
+  journeyDay,
+  onClose,
+}: {
+  program: MemberProgramState;
+  journeyDay: MemberJourneyDay;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  return (
+    <div
+      role="presentation"
+      onMouseDown={(event) => event.target === event.currentTarget && onClose()}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/35 px-4 py-8 backdrop-blur-sm"
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="journey-day-dialog-title"
+        className="max-h-full w-full max-w-2xl overflow-y-auto rounded-3xl border border-line bg-surface p-6 shadow-2xl sm:p-7"
+      >
+        <div className="flex items-start justify-between gap-4 border-b border-line pb-5">
+          <div>
+            <p className="text-xs font-medium tracking-[0.18em] text-brand">JOURNEY HISTORY</p>
+            <h2 id="journey-day-dialog-title" className="mt-2 text-2xl font-bold">
+              Day {journeyDay.day} 详情
+            </h2>
+            <p className="mt-1 text-xs text-ink-muted">
+              {formatMemberDate(journeyDay.dateKey)} · {journeyDayLabel(journeyDay)}
+            </p>
+          </div>
+          <button
+            type="button"
+            autoFocus
+            aria-label="关闭历史详情"
+            onClick={onClose}
+            className="rounded-full border border-line px-3 py-2 text-xs text-ink-muted transition hover:border-brand hover:text-brand"
+          >
+            关闭
+          </button>
+        </div>
+        <div className="mt-6">
+          <JourneyDayDetail program={program} journeyDay={journeyDay} />
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function TodayView({
   session,
   program,
@@ -539,36 +621,36 @@ function TodayView({
   const todayDateKey = memberEffectiveTodayDateKey(program);
   const journeyDays = memberJourneyDays(program, todayDateKey);
   const today = journeyDays.find((day) => day.isToday);
-  const latest = latestMemberCheckin(program);
-  const fallbackDay = today?.day ?? latest?.day ?? 1;
-  const [selectedDay, setSelectedDay] = useState(fallbackDay);
-  const [checkedIds, setCheckedIds] = useState(
-    today?.checkin?.completedTaskIds ?? memberCheckinDraftForDate(program, todayDateKey),
-  );
+  const persistedCheckedIds =
+    today?.checkin?.completedTaskIds ??
+    (program.draftDateKey === todayDateKey
+      ? program.draftCompletedTaskIds
+      : emptyMemberTaskIds);
+  const [checkedIds, setCheckedIds] = useState(persistedCheckedIds);
   const [reflectionOpen, setReflectionOpen] = useState(false);
   const [reflectionChoice, setReflectionChoice] = useState<MemberReflectionChoice | null>(null);
   const [optionalNote, setOptionalNote] = useState("");
+  const [historyDay, setHistoryDay] = useState<MemberJourneyDay | null>(null);
 
   useEffect(() => {
-    setSelectedDay(today?.day ?? latest?.day ?? 1);
-  }, [latest?.day, today?.day, todayDateKey]);
+    setCheckedIds(persistedCheckedIds);
+  }, [persistedCheckedIds]);
 
   useEffect(() => {
-    setCheckedIds(
-      today?.checkin?.completedTaskIds ?? memberCheckinDraftForDate(program, todayDateKey),
-    );
     setReflectionOpen(false);
     setReflectionChoice(null);
     setOptionalNote("");
-  }, [program, today?.checkin?.completedTaskIds, today?.checkin?.dateKey, todayDateKey]);
+    setHistoryDay(null);
+  }, [today?.checkin?.dateKey, todayDateKey]);
 
-  const selectedJourneyDay =
-    journeyDays.find((day) => day.day === selectedDay) ?? journeyDays[0];
   const displayDay = today?.day ?? (todayDateKey > journeyDays[6].dateKey ? 7 : 1);
   const canCheckin = canSubmitMemberCheckin(program, todayDateKey);
   const todayCheckin = today?.checkin;
   const completedDays = memberCompletedDays(program);
   const totalTasks = allMemberTasks(program).length;
+  const hasJourneyHistory = journeyDays.some(
+    (day) => !day.isToday && day.status !== "locked",
+  );
 
   const toggleTask = (taskId: string) => {
     if (!canCheckin || todayCheckin) return;
@@ -577,6 +659,7 @@ function TodayView({
       : [...checkedIds, taskId];
     setCheckedIds(next);
     onSaveDraft(next);
+    if (next.length === totalTasks) setReflectionOpen(true);
   };
 
   return (
@@ -601,11 +684,10 @@ function TodayView({
             </span>
           </div>
           <div className="mt-5">
-            <JourneyGrid
-              days={journeyDays}
-              selectedDay={selectedJourneyDay.day}
-              onSelect={setSelectedDay}
-            />
+            <JourneyGrid days={journeyDays} onInspect={setHistoryDay} />
+            {hasJourneyHistory ? (
+              <p className="mt-3 text-xs text-ink-muted">点击过去的日期查看当天详情。</p>
+            ) : null}
           </div>
         </div>
         <div className="rounded-3xl border border-line bg-surface p-6">
@@ -753,16 +835,6 @@ function TodayView({
         </div>
       ) : null}
 
-      <section className="mt-6 grid gap-4 lg:grid-cols-[0.72fr_1fr]">
-        <div className="rounded-3xl border border-line bg-surface p-6">
-          <p className="text-sm font-medium text-ink-muted">7 天记录</p>
-          <p className="mt-3 text-sm leading-6 text-ink-soft">
-            选择已记录或未记录的日期查看摘要；未来日期保持锁定，过去漏记不会阻止今天继续。
-          </p>
-        </div>
-        <JourneyDayDetail program={program} journeyDay={selectedJourneyDay} />
-      </section>
-
       <details className="mt-5 rounded-3xl border border-line bg-surface p-6">
         <summary className="cursor-pointer text-sm font-medium text-brand">为什么是这 3+3</summary>
         <ul className="mt-3 grid gap-2 text-sm leading-6 text-ink-soft">
@@ -820,6 +892,13 @@ function TodayView({
             </button>
           </div>
         </details>
+      ) : null}
+      {historyDay ? (
+        <JourneyDayDialog
+          program={program}
+          journeyDay={historyDay}
+          onClose={() => setHistoryDay(null)}
+        />
       ) : null}
       <WorkspaceFooter />
     </div>

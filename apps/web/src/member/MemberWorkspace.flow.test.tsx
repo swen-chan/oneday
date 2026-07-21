@@ -120,6 +120,13 @@ describe("member workspace unified 7-day flow", () => {
     );
     expect(screen.getAllByRole("progressbar")).toHaveLength(6);
     expect(screen.getAllByRole("button", { name: /今日未完成，累计 0\/7 天/ })).toHaveLength(6);
+    expect(screen.getAllByTestId("checkin-bubble")[0].className).toContain("aspect-square");
+    expect(screen.getAllByTestId("checkin-bubble")[0].className).toContain("rounded-full");
+    expect(screen.getAllByTestId("checkin-bubble")[0].className).toContain(
+      "motion-reduce:transform-none",
+    );
+    expect(screen.queryByText("7 天记录")).toBeNull();
+    expect(screen.queryByText(/^Day 1 ·/)).toBeNull();
     expect(screen.queryByText("演示工具")).toBeNull();
 
     for (const task of tasks.slice(0, 4)) {
@@ -179,8 +186,8 @@ describe("member workspace unified 7-day flow", () => {
       const button = bubbleButton(task, true, 1);
       expect(button.hasAttribute("disabled")).toBe(true);
     }
-    expect(screen.getByText("共完成 4 项")).toBeTruthy();
-    expect(screen.getByText("模板反馈")).toBeTruthy();
+    expect(screen.queryByText("共完成 4 项")).toBeNull();
+    expect(screen.queryByText("模板反馈")).toBeNull();
     expect(screen.queryByText("这是不会被保存的私密原文")).toBeNull();
 
     view.unmount();
@@ -222,7 +229,8 @@ describe("member workspace unified 7-day flow", () => {
     for (const task of tasks) {
       await user.click(bubbleButton(task));
     }
-    await user.click(screen.getByRole("button", { name: "完成今天" }));
+    expect(await screen.findByText("今天做完这些，感觉怎样？")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "完成今天" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "刚刚好" }));
     await user.click(screen.getByRole("button", { name: "生成今日鼓励与海报" }));
 
@@ -259,8 +267,22 @@ describe("member workspace unified 7-day flow", () => {
     const missedDay = screen.getByRole("button", { name: /Day 2，.*未记录/ });
     expect(missedDay.hasAttribute("disabled")).toBe(false);
     await user.click(missedDay);
+    expect(screen.getByRole("dialog", { name: "Day 2 详情" })).toBeTruthy();
     expect(screen.getByText("这一天没有记录，不影响你继续旅程。")).toBeTruthy();
+    expect(screen.queryByText("7 天记录")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "关闭历史详情" }));
+
+    await user.click(screen.getByRole("button", { name: /Day 1，.*已记录/ }));
+    expect(screen.getByRole("dialog", { name: "Day 1 详情" })).toBeTruthy();
+    expect(screen.getByText("共完成 4 项")).toBeTruthy();
+    expect(screen.getByText("模板反馈")).toBeTruthy();
+    expect(screen.queryByText(/^Day 1 ·/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "关闭历史详情" }));
+
     expect(screen.getByRole("button", { name: /Day 4，.*未解锁/ }).hasAttribute("disabled")).toBe(
+      true,
+    );
+    expect(screen.getByRole("button", { name: /Day 3，.*今天/ }).hasAttribute("disabled")).toBe(
       true,
     );
     expect(screen.getByRole("button", { name: "完成今天" }).hasAttribute("disabled")).toBe(true);
