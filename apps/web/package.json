@@ -8,8 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "npm run test:member",
-    "test:member": "vitest run src/member"
+    "test": "vitest run src/member src/console",
+    "test:member": "vitest run src/member",
+    "test:console": "vitest run src/console"
   },
   "dependencies": {
     "next": "15.5.20",
