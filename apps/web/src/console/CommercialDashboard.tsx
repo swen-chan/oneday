@@ -57,6 +57,14 @@ function formatChange(metric: CommercialKpi) {
   return `较上月${metric.changeRatio > 0 ? "增加" : "减少"} ${percentage}%`;
 }
 
+function formatAxisCurrency(value: number) {
+  if (value >= 10000) {
+    const amount = value / 10000;
+    return `¥${amount >= 100 ? amount.toFixed(0) : amount.toFixed(1).replace(/\.0$/, "")}万`;
+  }
+  return `¥${Math.round(value).toLocaleString("zh-CN")}`;
+}
+
 function toggleValue<Value extends string>(values: readonly Value[], value: Value) {
   return values.includes(value)
     ? values.filter((current) => current !== value)
@@ -85,7 +93,6 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
     () => Object.values(supplyBrandOptions).flatMap((brands) => brands.map((brand) => brand.id)),
     [],
   );
-  const [supplyBrands, setSupplyBrands] = useState<string[]>(allSupplyBrandIds);
 
   const kpiResult = getCommercialKpis(dataset, access, hotelSelection);
   const revenueResult = getRevenueSeries(
@@ -101,7 +108,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
     access,
     hotelSelection,
     supplyProducts,
-    supplyBrands,
+    allSupplyBrandIds,
   );
   const effectiveSelection = kpiResult.scope.effectiveSelection;
 
@@ -129,10 +136,7 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
     1,
     ...revenueResult.months.map((month) => month.amount ?? 0),
   );
-  const selectedSupplyBrandNames = Object.values(supplyBrandOptions)
-    .flat()
-    .filter((brand) => supplyBrands.includes(brand.id))
-    .map((brand) => brand.name);
+  const revenueAxisLabels = [maxRevenue, maxRevenue / 2, 0];
   const scopeLabel =
     effectiveSelection === "all"
       ? access.role === "owner"
@@ -273,88 +277,114 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
             </div>
           </div>
 
-          {revenueKind === "product" && (
-            <div className="mb-5 flex flex-wrap gap-2" aria-label="产品营收筛选">
-              {revenueProductOptions.map((product) => (
-                <button
-                  key={product.id}
-                  type="button"
-                  aria-pressed={revenueProducts.includes(product.id)}
-                  onClick={() =>
-                    setRevenueProducts((current) => toggleValue(current, product.id))
-                  }
-                  className={`rounded-full border px-3 py-2 text-xs transition ${
-                    revenueProducts.includes(product.id)
-                      ? "border-brand bg-brand text-white"
-                      : "border-line bg-white text-ink-muted"
-                  }`}
-                >
-                  {product.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="overflow-x-auto pb-1">
-            <div className="grid min-w-[720px] grid-cols-12 gap-2" aria-label="月度营收柱状图">
-              {revenueResult.months.map((month) => {
-                const valueLabel = month.amount === null ? "未发生" : formatCurrency(month.amount);
-                const height =
-                  month.amount === null
-                    ? 18
-                    : month.amount === 0
-                      ? 0
-                      : Math.max(8, Math.round((month.amount / maxRevenue) * 144));
-                const tooltipVisible =
-                  month.amount !== null && activeRevenueMonth === month.month;
-                return (
+          <div
+            data-testid="revenue-filter-strip"
+            className="mb-5 h-10 overflow-x-auto"
+          >
+            {revenueKind === "product" ? (
+              <div className="flex h-full min-w-max items-center gap-2" aria-label="产品营收筛选">
+                {revenueProductOptions.map((product) => (
                   <button
-                    key={month.month}
+                    key={product.id}
                     type="button"
-                    data-testid={`revenue-month-${month.month}`}
-                    aria-label={`${month.month} 月，${valueLabel}`}
-                    aria-expanded={month.amount === null ? undefined : tooltipVisible}
-                    onMouseEnter={() =>
-                      month.amount !== null && setActiveRevenueMonth(month.month)
+                    aria-pressed={revenueProducts.includes(product.id)}
+                    onClick={() =>
+                      setRevenueProducts((current) => toggleValue(current, product.id))
                     }
-                    onMouseLeave={() => setActiveRevenueMonth(null)}
-                    onFocus={() => month.amount !== null && setActiveRevenueMonth(month.month)}
-                    onBlur={() => setActiveRevenueMonth(null)}
-                    onClick={() => month.amount !== null && setActiveRevenueMonth(month.month)}
-                    className="group flex min-h-52 flex-col justify-end text-center outline-none"
+                    className={`shrink-0 rounded-full border px-3 py-2 text-xs transition ${
+                      revenueProducts.includes(product.id)
+                        ? "border-brand bg-brand text-white"
+                        : "border-line bg-white text-ink-muted"
+                    }`}
                   >
-                    <div className="relative mb-2 flex h-9 items-center justify-center">
-                      {month.amount === null ? (
-                        <span className="text-[10px] leading-4 text-ink-muted">未发生</span>
-                      ) : (
-                        <span
-                          role="tooltip"
-                          aria-hidden={!tooltipVisible}
-                          data-testid={`revenue-tooltip-${month.month}`}
-                          className={`whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-[10px] font-medium text-white shadow-sm transition-opacity ${
-                            tooltipVisible ? "opacity-100" : "opacity-0"
-                          }`}
-                        >
-                          {valueLabel}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex h-36 items-end justify-center rounded-xl bg-bg px-2">
-                      <div
-                        data-testid={`revenue-bar-${month.month}`}
-                        aria-hidden="true"
-                        className={`w-full rounded-t-lg transition-all ${
-                          month.amount === null
-                            ? "border border-dashed border-line bg-transparent"
-                            : "bg-brand group-focus-visible:ring-2 group-focus-visible:ring-brand/30"
-                        }`}
-                        style={{ height }}
-                      />
-                    </div>
-                    <p className="mt-2 text-xs text-ink-muted">{month.month} 月</p>
+                    {product.name}
                   </button>
-                );
-              })}
+                ))}
+              </div>
+            ) : (
+              <div className="h-full" aria-hidden="true" />
+            )}
+          </div>
+
+          <div className="grid grid-cols-[3.75rem_minmax(0,1fr)] gap-3">
+            <div className="pt-11" aria-label="月度营收纵轴">
+              <div className="flex h-36 flex-col justify-between text-right text-[10px] leading-none text-ink-muted">
+                {revenueAxisLabels.map((value, index) => (
+                  <span key={value} data-testid={`revenue-axis-label-${index}`}>
+                    {formatAxisCurrency(value)}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className="overflow-x-auto pb-1">
+              <div
+                className="relative grid min-w-[720px] grid-cols-12 gap-2"
+                aria-label="月度营收柱状图"
+              >
+                <div className="pointer-events-none absolute inset-x-0 top-11 h-36" aria-hidden="true">
+                  <span className="absolute inset-x-0 top-0 border-t border-line" />
+                  <span className="absolute inset-x-0 top-1/2 border-t border-dashed border-line" />
+                  <span className="absolute inset-x-0 bottom-0 border-t border-line" />
+                </div>
+                {revenueResult.months.map((month) => {
+                  const valueLabel = month.amount === null ? "未发生" : formatCurrency(month.amount);
+                  const height =
+                    month.amount === null
+                      ? 18
+                      : month.amount === 0
+                        ? 0
+                        : Math.max(8, Math.round((month.amount / maxRevenue) * 144));
+                  const tooltipVisible =
+                    month.amount !== null && activeRevenueMonth === month.month;
+                  return (
+                    <button
+                      key={month.month}
+                      type="button"
+                      data-testid={`revenue-month-${month.month}`}
+                      aria-label={`${month.month} 月，${valueLabel}`}
+                      aria-expanded={month.amount === null ? undefined : tooltipVisible}
+                      onMouseEnter={() =>
+                        month.amount !== null && setActiveRevenueMonth(month.month)
+                      }
+                      onMouseLeave={() => setActiveRevenueMonth(null)}
+                      onFocus={() => month.amount !== null && setActiveRevenueMonth(month.month)}
+                      onBlur={() => setActiveRevenueMonth(null)}
+                      onClick={() => month.amount !== null && setActiveRevenueMonth(month.month)}
+                      className="group relative flex min-h-52 flex-col justify-end text-center outline-none"
+                    >
+                      <div className="relative mb-2 flex h-9 items-center justify-center">
+                        {month.amount === null ? (
+                          <span className="text-[10px] leading-4 text-ink-muted">未发生</span>
+                        ) : (
+                          <span
+                            role="tooltip"
+                            aria-hidden={!tooltipVisible}
+                            data-testid={`revenue-tooltip-${month.month}`}
+                            className={`whitespace-nowrap rounded-lg bg-ink px-2.5 py-1.5 text-[10px] font-medium text-white shadow-sm transition-opacity ${
+                              tooltipVisible ? "opacity-100" : "opacity-0"
+                            }`}
+                          >
+                            {valueLabel}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex h-36 items-end justify-center px-2">
+                        <div
+                          data-testid={`revenue-bar-${month.month}`}
+                          aria-hidden="true"
+                          className={`w-full rounded-t-lg transition-all ${
+                            month.amount === null
+                              ? "border border-dashed border-line bg-surface"
+                              : "bg-brand group-focus-visible:ring-2 group-focus-visible:ring-brand/30"
+                          }`}
+                          style={{ height }}
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-ink-muted">{month.month} 月</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
           {revenueKind === "product" && revenueProducts.length === 0 && (
@@ -371,15 +401,12 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
             <p className="text-xs font-medium tracking-[0.18em] text-brand">SUPPLY CHAIN</p>
             <h2 className="mt-2 text-xl font-bold">供应链管理</h2>
             <p className="mt-1 text-sm text-ink-muted">
-              {scopeLabel} · 产品与品牌可多选，价格及库存均为合成演示数据
+              {scopeLabel} · 按产品筛选，品牌在每条记录中展示；价格及库存均为合成演示数据
             </p>
           </div>
           <button
             type="button"
-            onClick={() => {
-              setSupplyProducts(supplyProductOptions.map((product) => product.id));
-              setSupplyBrands(allSupplyBrandIds);
-            }}
+            onClick={() => setSupplyProducts(supplyProductOptions.map((product) => product.id))}
             className="rounded-full border border-line px-4 py-2 text-xs font-medium text-ink-muted transition hover:border-brand hover:text-brand"
           >
             重置筛选
@@ -387,52 +414,26 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
         </div>
 
         <div className="mb-4 rounded-3xl border border-line bg-surface p-5">
-          <div className="grid gap-5 lg:grid-cols-[0.8fr_1.2fr]">
-            <div>
-              <p className="mb-2 text-xs font-medium text-ink-muted">产品（多选）</p>
-              <div className="flex flex-wrap gap-2">
-                {supplyProductOptions.map((product) => (
-                  <button
-                    key={product.id}
-                    type="button"
-                    aria-pressed={supplyProducts.includes(product.id)}
-                    onClick={() =>
-                      setSupplyProducts((current) => toggleValue(current, product.id))
-                    }
-                    className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
-                      supplyProducts.includes(product.id)
-                        ? "border-brand bg-brand-soft text-brand"
-                        : "border-line bg-white text-ink-muted"
-                    }`}
-                  >
-                    {product.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-xs font-medium text-ink-muted">品牌（多选）</p>
-              <div className="flex max-h-28 flex-wrap gap-2 overflow-y-auto pr-1">
-                {supplyProductOptions.flatMap((product) =>
-                  supplyBrandOptions[product.id].map((supplyBrand) => (
-                    <button
-                      key={supplyBrand.id}
-                      type="button"
-                      aria-pressed={supplyBrands.includes(supplyBrand.id)}
-                      onClick={() =>
-                        setSupplyBrands((current) => toggleValue(current, supplyBrand.id))
-                      }
-                      className={`rounded-full border px-3 py-2 text-xs transition ${
-                        supplyBrands.includes(supplyBrand.id)
-                          ? "border-brand bg-brand text-white"
-                          : "border-line bg-white text-ink-muted"
-                      }`}
-                    >
-                      {supplyBrand.name}
-                    </button>
-                  )),
-                )}
-              </div>
+          <div>
+            <p className="mb-2 text-xs font-medium text-ink-muted">产品（多选）</p>
+            <div className="flex flex-wrap gap-2">
+              {supplyProductOptions.map((product) => (
+                <button
+                  key={product.id}
+                  type="button"
+                  aria-pressed={supplyProducts.includes(product.id)}
+                  onClick={() =>
+                    setSupplyProducts((current) => toggleValue(current, product.id))
+                  }
+                  className={`rounded-full border px-3 py-2 text-xs font-medium transition ${
+                    supplyProducts.includes(product.id)
+                      ? "border-brand bg-brand-soft text-brand"
+                      : "border-line bg-white text-ink-muted"
+                  }`}
+                >
+                  {product.name}
+                </button>
+              ))}
             </div>
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4 text-xs text-ink-muted">
@@ -443,18 +444,15 @@ export function CommercialDashboard({ brandId, access }: CommercialDashboardProp
                 : "未选产品"}
             </span>
             <span className="rounded-full bg-bg px-2.5 py-1">
-              {selectedSupplyBrandNames.length
-                ? `${selectedSupplyBrandNames.length} 个品牌`
-                : "未选品牌"}
+              {supplyResult.rows.length} 条产品品牌记录
             </span>
-            <span>{supplyResult.rows.length} 条结果</span>
           </div>
         </div>
 
         {supplyResult.rows.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-line bg-surface px-6 py-12 text-center">
             <p className="text-sm font-bold">当前筛选没有供应链记录</p>
-            <p className="mt-2 text-xs text-ink-muted">重新选择产品或品牌，查看对应的价格、销售与库存。</p>
+            <p className="mt-2 text-xs text-ink-muted">重新选择产品，查看对应品牌的价格、销售与库存。</p>
           </div>
         ) : (
           <>

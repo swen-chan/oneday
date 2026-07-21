@@ -917,7 +917,7 @@ export function RoleRoutedDemo({
                       <li key={m.alias} className="flex items-center justify-between text-sm">
                         <span>{m.displayName ?? m.alias}</span>
                         <span className="text-xs text-ink-muted">
-                          {daysAgo(m.lastActiveAt, dashboard.referenceDate)} · {m.messageCount} 条
+                          {daysAgo(m.lastActiveAt, dashboard.referenceDate)}
                         </span>
                       </li>
                     ))}

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { CommercialDashboard } from "./CommercialDashboard";
 
@@ -58,7 +58,12 @@ describe("commercial dashboard hotel visibility", () => {
     );
     const january = screen.getByTestId("revenue-month-1");
     const januaryTooltip = screen.getByTestId("revenue-tooltip-1");
+    const filterStrip = screen.getByTestId("revenue-filter-strip");
 
+    expect(screen.getByLabelText("月度营收纵轴")).toBeTruthy();
+    expect(screen.getByTestId("revenue-axis-label-2").textContent).toBe("¥0");
+    expect(filterStrip.className).toContain("h-10");
+    expect(within(filterStrip).queryByRole("button")).toBeNull();
     expect(januaryTooltip.className).toContain("opacity-0");
     fireEvent.mouseEnter(january);
     expect(januaryTooltip.className).toContain("opacity-100");
@@ -68,10 +73,32 @@ describe("commercial dashboard hotel visibility", () => {
     expect(januaryTooltip.className).toContain("opacity-100");
 
     fireEvent.click(screen.getByRole("button", { name: "产品营收" }));
-    expect(screen.getByRole("button", { name: "线上营" })).toBeTruthy();
+    expect(within(filterStrip).getByRole("button", { name: "线上营" })).toBeTruthy();
+    expect(filterStrip.className).toContain("h-10");
     const productHeights = Array.from({ length: 7 }, (_, index) =>
       screen.getByTestId(`revenue-bar-${index + 1}`).style.height,
     );
     expect(productHeights).not.toEqual(subscriptionHeights);
+  });
+
+  it("filters supply rows by product while keeping brands visible in each row", () => {
+    render(
+      <CommercialDashboard
+        brandId="brand-test"
+        access={{ role: "owner", allowedHotelIds: ["wumingchu", "junting"] }}
+      />,
+    );
+
+    expect(screen.queryByText("品牌（多选）")).toBeNull();
+    expect(screen.queryByRole("button", { name: "雾岚植萃" })).toBeNull();
+    expect(screen.getAllByText("雾岚植萃").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "茶包" }));
+    fireEvent.click(screen.getByRole("button", { name: "香氛" }));
+    fireEvent.click(screen.getByRole("button", { name: "酒" }));
+
+    expect(screen.getByText("3 条产品品牌记录")).toBeTruthy();
+    expect(screen.queryByText("栖茶研究所")).toBeNull();
+    expect(screen.getAllByText("雾岚植萃").length).toBeGreaterThan(0);
   });
 });

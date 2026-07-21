@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RoleRoutedDemo } from "../app/page";
@@ -33,10 +33,21 @@ const dashboard = {
   groupId: "group-test",
   groupName: "JING 创始会员群",
   referenceDate: "2026-07-21T00:00:00.000Z",
-  layers: { active: [], cooling: [], sleeping: [] },
+  layers: {
+    active: [
+      {
+        alias: "member-active",
+        displayName: "松林会员",
+        lastActiveAt: "2026-07-21T00:00:00.000Z",
+        messageCount: 7,
+      },
+    ],
+    cooling: [],
+    sleeping: [],
+  },
   summary: {
-    total: 0,
-    activeCount: 0,
+    total: 1,
+    activeCount: 1,
     coolingCount: 0,
     sleepingCount: 0,
     activeRatio: 0,
@@ -104,6 +115,10 @@ describe("console login and role routing", () => {
     expect(screen.getAllByText("无名初酒店").length).toBeGreaterThan(0);
     expect(screen.queryByRole("option", { name: "君亭酒店" })).toBeNull();
     expect(screen.getByText("仅品牌负责人可管理管理员")).toBeTruthy();
+    const healthMember = (await screen.findByText("松林会员")).closest("li");
+    expect(healthMember).not.toBeNull();
+    expect(within(healthMember as HTMLLIElement).getByText("今天")).toBeTruthy();
+    expect(within(healthMember as HTMLLIElement).queryByText(/条/)).toBeNull();
   });
 
   it("does not let a member session trigger the commercial or group dashboard", async () => {
