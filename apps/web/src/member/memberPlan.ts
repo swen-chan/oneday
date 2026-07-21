@@ -25,9 +25,17 @@ export const goalOptions = [
   { id: "visible-progress", label: "留下可以看见的小成果" },
 ] as const;
 
+export const memberReflectionOptions = [
+  { id: "flowing", label: "比想象中顺" },
+  { id: "steady", label: "刚刚好" },
+  { id: "challenging", label: "有点挑战" },
+  { id: "enough", label: "今天先做到这里" },
+] as const;
+
 export type ConcernId = (typeof concernOptions)[number]["id"];
 export type MemberStateId = (typeof stateOptions)[number]["id"];
 export type GoalId = (typeof goalOptions)[number]["id"];
+export type MemberReflectionChoice = (typeof memberReflectionOptions)[number]["id"];
 
 export interface MemberAssessment {
   concern: ConcernId;
@@ -54,6 +62,7 @@ export interface MemberCheckinSummary {
   completedTaskIds: string[];
   blockerProvided: boolean;
   feedbackFocusProvided: boolean;
+  reflectionChoice?: MemberReflectionChoice;
 }
 
 export interface MemberProgramState {
@@ -349,6 +358,11 @@ export function memberCompletedDays(program: MemberProgramState) {
   return program.checkins.length;
 }
 
+export function memberTaskCompletedDays(program: MemberProgramState, taskId: string) {
+  if (!knownTaskIds(program).has(taskId)) return 0;
+  return program.checkins.filter((checkin) => checkin.completedTaskIds.includes(taskId)).length;
+}
+
 export function memberJourneyDays(
   program: MemberProgramState,
   todayDateKey = memberEffectiveTodayDateKey(program),
@@ -405,6 +419,7 @@ export function completeMemberCheckin(
   blockerProvided: boolean,
   feedbackFocusProvided: boolean,
   dateKey = memberEffectiveTodayDateKey(program),
+  reflectionChoice?: MemberReflectionChoice,
 ): MemberProgramState {
   if (!canSubmitMemberCheckin(program, dateKey)) return program;
   const knownIds = knownTaskIds(program);
@@ -416,6 +431,9 @@ export function completeMemberCheckin(
     completedTaskIds: safeTaskIds,
     blockerProvided,
     feedbackFocusProvided,
+    reflectionChoice: memberReflectionOptions.some((option) => option.id === reflectionChoice)
+      ? reflectionChoice
+      : undefined,
   };
   return {
     ...program,
@@ -459,24 +477,44 @@ export function buildMemberFeedback(
   if (!checkin) return null;
   const completedCount = checkin.completedTaskIds.length;
   const taskMessage =
-    completedCount >= 5
-      ? `你今天完成了 ${completedCount} 个行动，已经把想法转成了一组清晰的小结果。`
+    completedCount === 6
+      ? "六个泡泡都被你点亮了。不是因为今天必须完美，而是你让六个小动作都真实发生了。"
+      : completedCount >= 4
+        ? `你今天点亮了 ${completedCount} 个泡泡，已经把想法变成了一组看得见的小行动。`
       : completedCount >= 3
-        ? `你今天完成了 ${completedCount} 个行动，节奏正在从“想做”走向“做得到”。`
-        : `你今天完成了 ${completedCount} 个行动。数量不必多，先保留一个明天愿意继续的动作。`;
-  const reflectionMessage =
-    checkin.blockerProvided && checkin.feedbackFocusProvided
-      ? "你也留下了今天的卡点和希望获得反馈的方向；这些文字只用于本次页面反馈，没有写入浏览器存储。"
-      : "如果愿意，明天可以继续补充卡点和希望获得反馈的方向，让复盘更具体。";
+        ? `你今天点亮了 ${completedCount} 个泡泡，节奏正在从“想做”走向“做得到”。`
+        : `你今天点亮了 ${completedCount} 个泡泡。数量不必多，愿意开始本身就是今天的进展。`;
+  const reflectionMessages: Record<MemberReflectionChoice, string> = {
+    flowing: "今天比想象中更顺，记住这种低阻力的开始方式。",
+    steady: "今天的分量刚刚好，可重复比一次做满更重要。",
+    challenging: "今天有点挑战，但你仍留下了真实的完成痕迹。",
+    enough: "今天先做到这里也很好，给节奏留一点呼吸空间。",
+  };
+  const reflectionMessage = checkin.reflectionChoice
+    ? reflectionMessages[checkin.reflectionChoice]
+    : checkin.blockerProvided
+      ? "你也为今天选了一句感受，让这次记录更完整。"
+      : "今天没有额外复盘也没关系，行动本身已经被记录。";
+  const noteMessage = checkin.feedbackFocusProvided
+    ? "你还给今天留了一句补充；系统只记录“已补充”，不会保存原文。"
+    : "你跳过了补充文字，保持轻量也很好。";
+  const completedIds = new Set(checkin.completedTaskIds);
+  const nextTask = allMemberTasks(program).find((task) => !completedIds.has(task.id));
+  const nextStep = nextTask
+    ? `明天可以先从“${nextTask.title}”里挑一个最小动作继续。`
+    : "明天不用加码，只要用同样的方式再开始一次。";
 
   return {
-    title: "今日模板反馈",
+    title: completedCount === 6 ? "今天的六个泡泡都亮了" : "今天，已经向前一步",
+    encouragement: taskMessage,
+    nextStep,
     paragraphs: [
       taskMessage,
       reflectionMessage,
-      "明天建议从今天未完成的任务里只挑一个最小动作继续，不追求一次做满，先让行动可以重复。",
+      noteMessage,
+      nextStep,
     ],
-    tags: ["已记录今日行动", "保持低门槛", "明天继续一个小动作"],
+    tags: ["已记录今日行动", "保持低门槛", completedCount === 6 ? "六项完成" : "允许部分完成"],
   };
 }
 
@@ -516,12 +554,16 @@ function parseStoredCheckin(
   if (day < 1 || day > memberJourneyLength) return null;
   const expectedDateKey = addMemberDays(program.startedOn, day - 1);
   if (checkin.dateKey !== expectedDateKey) return null;
+  const reflectionChoice = memberReflectionOptions.find(
+    (option) => option.id === checkin.reflectionChoice,
+  )?.id;
   return {
     day,
     dateKey: expectedDateKey,
     completedTaskIds: safeTaskIdsFromUnknown(checkin.completedTaskIds, program),
     blockerProvided: checkin.blockerProvided,
     feedbackFocusProvided: checkin.feedbackFocusProvided,
+    reflectionChoice,
   };
 }
 
