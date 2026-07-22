@@ -4,6 +4,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemberWorkspace } from "./MemberWorkspace";
+import { createLocalMemberSquareProvider, memberSquareStorageKey } from "./memberSquareStore";
 import {
   allMemberTasks,
   completeMemberCheckin,
@@ -163,7 +164,8 @@ describe("member workspace unified 7-day flow", () => {
     expect(screen.getByText("TODAY IS ENOUGH")).toBeTruthy();
     expect(screen.getByLabelText("One Day 今日海报预览")).toBeTruthy();
     expect(screen.getByRole("button", { name: "保存图片" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "分享" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "外部分享" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "发布到广场" })).toBeTruthy();
     expect(router.push).not.toHaveBeenCalledWith("/member/checkin");
     expect(router.push).not.toHaveBeenCalledWith("/member/feedback");
 
@@ -299,6 +301,50 @@ describe("member workspace unified 7-day flow", () => {
     expect(parseMemberProgramState(window.localStorage.getItem(memberStorageKey))?.demoDayOffset).toBe(
       0,
     );
+  });
+
+  it("keeps private check-in and public square publishing integrated but explicitly separate", async () => {
+    const user = userEvent.setup();
+    seedSession();
+    const program = seedDayOneCheckin();
+    const completedTask = allMemberTasks(program)[0];
+
+    let view = render(<MemberWorkspace view="today" />);
+    expect(await screen.findByTestId("member-outcome")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "外部分享" })).toBeTruthy();
+    await user.click(screen.getByRole("button", { name: "发布到广场" }));
+
+    expect(screen.getByRole("dialog", { name: "确认发布到广场" })).toBeTruthy();
+    expect(screen.getByText(/这一步不同于私密打卡，也不同于外部分享/)).toBeTruthy();
+    expect(screen.getByText(/私密补充原文绝不会自动带入/)).toBeTruthy();
+    expect(
+      screen.getByRole("checkbox", { name: completedTask.title }).hasAttribute("checked"),
+    ).toBe(false);
+
+    await user.click(screen.getByRole("checkbox", { name: completedTask.title }));
+    await user.click(screen.getByRole("button", { name: "确认公开发布" }));
+    expect(router.push).toHaveBeenCalledWith("/member/square?published=checkin");
+
+    const rawSquare = window.localStorage.getItem(memberSquareStorageKey(memberEmail));
+    expect(rawSquare).not.toContain("这是不会被保存的私密原文");
+    const square = createLocalMemberSquareProvider(window.localStorage).snapshot(memberEmail);
+    const ownPost = square.posts.find((post) => post.own)!;
+    expect(ownPost.checkin?.visibleTaskTitles).toEqual([completedTask.title]);
+    expect(ownPost.checkin?.completedCount).toBe(4);
+
+    view.unmount();
+    vi.clearAllMocks();
+    window.history.replaceState({}, "", "/member/square?published=checkin");
+    view = render(<MemberWorkspace view="square" />);
+    expect(await screen.findByRole("heading", { name: "广场" })).toBeTruthy();
+    expect(screen.getByText("演示广场 · 合成内容")).toBeTruthy();
+    expect(screen.getByText("仅当前账号与浏览器")).toBeTruthy();
+    expect(screen.getByText(`✓ ${completedTask.title}`)).toBeTruthy();
+    expect(screen.queryByText(memberEmail)).toBeNull();
+    expect(screen.queryByText("JING 会员账号 · 网页端会员体验")).toBeNull();
+    expect(screen.getByRole("link", { name: "今日" }).getAttribute("href")).toBe("/member/today");
+    expect(screen.getByRole("link", { name: "广场" }).getAttribute("aria-current")).toBe("page");
+    view.unmount();
   });
 
   it("redirects the retired check-in view and keeps non-member roles out", async () => {
