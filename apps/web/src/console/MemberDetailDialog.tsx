@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   buildSyntheticMemberProfile,
   type HealthMemberInput,
 } from "./memberProfiles";
+import { buildMemberOutreachDraft } from "./memberOutreach";
+import { copyTextToClipboard } from "./copyText";
 
 export function MemberDetailDialog({
   member,
@@ -19,6 +21,13 @@ export function MemberDetailDialog({
     () => buildSyntheticMemberProfile(member, referenceDate),
     [member, referenceDate],
   );
+  const [outreachVisible, setOutreachVisible] = useState(false);
+  const [regenerateCount, setRegenerateCount] = useState(0);
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
+  const outreach = useMemo(
+    () => buildMemberOutreachDraft(member, profile, referenceDate, regenerateCount),
+    [member, profile, referenceDate, regenerateCount],
+  );
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -28,9 +37,20 @@ export function MemberDetailDialog({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [onClose]);
 
+  useEffect(() => {
+    setOutreachVisible(false);
+    setRegenerateCount(0);
+    setCopyStatus("idle");
+  }, [member.alias]);
+
   const progress = Math.round(
     (profile.currentActivity.day / profile.currentActivity.totalDays) * 100,
   );
+
+  const copyOutreach = async () => {
+    const copied = await copyTextToClipboard(outreach.message);
+    setCopyStatus(copied ? "copied" : "failed");
+  };
 
   return (
     <div
@@ -92,7 +112,9 @@ export function MemberDetailDialog({
         <section className="mt-6 rounded-3xl border border-brand/20 bg-brand-soft p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-brand">正在进行</p>
+              <p className="text-xs text-brand">
+                {profile.activityLayer === "active" ? "正在进行" : "当前登记"}
+              </p>
               <h3 className="mt-1 text-base font-bold">{profile.currentActivity.name}</h3>
             </div>
             <span className="rounded-full bg-white/70 px-3 py-2 text-xs text-brand">
@@ -132,6 +154,73 @@ export function MemberDetailDialog({
             </blockquote>
           ) : (
             <p className="mt-3 text-sm text-ink-muted">今天尚未提交 3+3 打卡记录。</p>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-3xl border border-brand/20 bg-brand-soft p-5">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium text-brand">运营话术</p>
+              <h3 className="mt-1 text-base font-bold">{outreach.statusLabel}</h3>
+              <p className="mt-1 text-xs text-ink-muted">
+                结构化演示档案生成 · 需人工确认复制 · 不会自动发送
+              </p>
+            </div>
+            {!outreachVisible && (
+              <button
+                type="button"
+                onClick={() => {
+                  setOutreachVisible(true);
+                  setCopyStatus("idle");
+                }}
+                className="rounded-full bg-brand px-4 py-2 text-xs font-medium text-white"
+              >
+                {outreach.actionLabel}
+              </button>
+            )}
+          </div>
+
+          {outreachVisible && (
+            <div className="mt-4">
+              <div aria-label="话术生成依据" className="flex flex-wrap gap-2">
+                {outreach.basis.map((basis) => (
+                  <span
+                    key={basis}
+                    className="rounded-full border border-brand/15 bg-white/80 px-3 py-1.5 text-xs text-ink-muted"
+                  >
+                    {basis}
+                  </span>
+                ))}
+              </div>
+              <blockquote
+                data-testid="member-outreach-message"
+                className="mt-4 rounded-2xl bg-white px-4 py-4 text-sm leading-7 text-ink-soft"
+              >
+                {outreach.message}
+              </blockquote>
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => void copyOutreach()}
+                  className="rounded-full bg-brand px-4 py-2 text-xs font-medium text-white"
+                >
+                  {copyStatus === "copied" ? "已复制" : "复制话术"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegenerateCount((count) => count + 1);
+                    setCopyStatus("idle");
+                  }}
+                  className="rounded-full border border-brand bg-white px-4 py-2 text-xs font-medium text-brand"
+                >
+                  重新生成
+                </button>
+                {copyStatus === "failed" && (
+                  <span className="text-xs text-warn">复制失败，请手动选择文字复制</span>
+                )}
+              </div>
+            </div>
           )}
         </section>
       </section>
