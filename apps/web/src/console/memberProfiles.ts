@@ -10,8 +10,11 @@ export interface MemberActivityRecord {
   times: number;
 }
 
+export type MemberActivityLayer = "active" | "cooling" | "sleeping";
+
 export interface SyntheticMemberProfile {
   displayName: string;
+  activityLayer: MemberActivityLayer;
   memberStage: string;
   joinedAt: string;
   currentFocus: string;
@@ -64,7 +67,10 @@ function dateKeyDaysBefore(referenceDate: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function memberActivityLayer(member: HealthMemberInput, referenceDate: string) {
+export function memberActivityLayer(
+  member: HealthMemberInput,
+  referenceDate: string,
+): MemberActivityLayer {
   const idleDays =
     (new Date(referenceDate).getTime() - new Date(member.lastActiveAt).getTime()) /
     dayMilliseconds;
@@ -86,10 +92,12 @@ export function buildSyntheticMemberProfile(
     };
   });
   const totalDays = [7, 14, 21][seed % 3];
-  const checked = memberActivityLayer(member, referenceDate) === "active" && seed % 3 !== 0;
+  const activityLayer = memberActivityLayer(member, referenceDate);
+  const checked = activityLayer === "active" && seed % 3 !== 0;
 
   return {
     displayName: member.displayName ?? member.alias,
+    activityLayer,
     memberStage: memberStages[seed % memberStages.length],
     joinedAt: dateKeyDaysBefore(referenceDate, 90 + (seed % 280)),
     currentFocus: currentFocuses[seed % currentFocuses.length],
