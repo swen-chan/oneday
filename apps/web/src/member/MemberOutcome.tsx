@@ -67,14 +67,21 @@ function Celebration({ complete }: { complete: boolean }) {
 export function MemberOutcome({
   program,
   checkin,
+  onPublishToSquare,
 }: {
   program: MemberProgramState;
   checkin: MemberCheckinSummary;
+  onPublishToSquare?: (visibleTaskIds: string[]) => boolean;
 }) {
   const [notice, setNotice] = useState<string | null>(null);
+  const [squareConfirmOpen, setSquareConfirmOpen] = useState(false);
+  const [visibleTaskIds, setVisibleTaskIds] = useState<string[]>([]);
   const feedback = buildMemberFeedback(program, checkin);
   const totalTasks = allMemberTasks(program).length;
   const complete = checkin.completedTaskIds.length === totalTasks;
+  const completedTasks = allMemberTasks(program).filter((task) =>
+    checkin.completedTaskIds.includes(task.id),
+  );
   const posterContent = useMemo<MemberPosterContent | null>(() => {
     if (!feedback) return null;
     return {
@@ -182,15 +189,92 @@ export function MemberOutcome({
             <button
               type="button"
               onClick={() => void sharePoster()}
-              className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-white"
+              className="rounded-full border border-brand px-5 py-3 text-sm font-medium text-brand"
             >
-              分享
+              外部分享
             </button>
+            {onPublishToSquare ? (
+              <button
+                type="button"
+                onClick={() => {
+                  setVisibleTaskIds([]);
+                  setSquareConfirmOpen(true);
+                }}
+                className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-white"
+              >
+                发布到广场
+              </button>
+            ) : null}
           </div>
           {notice ? (
             <p role="status" className="mt-3 text-center text-xs text-ink-muted">
               {notice}
             </p>
+          ) : null}
+
+          {squareConfirmOpen && onPublishToSquare ? (
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="square-publish-title"
+              className="mt-5 rounded-3xl border border-brand/20 bg-white p-5 text-left shadow-sm"
+            >
+              <p className="text-xs font-medium tracking-[0.14em] text-brand">PUBLIC SQUARE</p>
+              <h3 id="square-publish-title" className="mt-2 text-lg font-bold">
+                确认发布到广场
+              </h3>
+              <p className="mt-2 text-xs leading-6 text-ink-soft">
+                这一步不同于私密打卡，也不同于外部分享。默认只公开 Day、完成数量、今日海报与鼓励；私密补充原文绝不会自动带入。
+              </p>
+
+              {completedTasks.length ? (
+                <fieldset className="mt-4">
+                  <legend className="text-xs font-bold">具体任务默认不公开，可主动勾选</legend>
+                  <div className="mt-3 grid gap-2">
+                    {completedTasks.map((task) => (
+                      <label
+                        key={task.id}
+                        className="flex items-start gap-3 rounded-2xl bg-bg px-4 py-3 text-xs leading-5 text-ink-soft"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={visibleTaskIds.includes(task.id)}
+                          onChange={(event) =>
+                            setVisibleTaskIds((current) =>
+                              event.target.checked
+                                ? [...current, task.id]
+                                : current.filter((id) => id !== task.id),
+                            )
+                          }
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+                        />
+                        <span>{task.title}</span>
+                      </label>
+                    ))}
+                  </div>
+                </fieldset>
+              ) : null}
+
+              <div className="mt-5 flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (onPublishToSquare(visibleTaskIds)) return;
+                    setNotice("当前浏览器无法保存广场内容，请稍后重试。");
+                  }}
+                  className="rounded-full bg-brand px-5 py-3 text-sm font-medium text-white"
+                >
+                  确认公开发布
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSquareConfirmOpen(false)}
+                  className="rounded-full border border-line px-5 py-3 text-sm text-ink-muted"
+                >
+                  取消
+                </button>
+              </div>
+            </section>
           ) : null}
         </div>
       </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   advanceMemberDemoDay,
@@ -37,8 +38,16 @@ import {
   type MemberTask,
 } from "./memberPlan";
 import { MemberOutcome } from "./MemberOutcome";
+import { MemberSquare } from "./MemberSquare";
+import { createLocalMemberSquareProvider } from "./memberSquareStore";
 
-export type MemberWorkspaceView = "home" | "onboarding" | "today" | "checkin" | "feedback";
+export type MemberWorkspaceView =
+  | "home"
+  | "onboarding"
+  | "today"
+  | "checkin"
+  | "feedback"
+  | "square";
 
 const emptyMemberTaskIds: string[] = [];
 
@@ -71,12 +80,16 @@ function WorkspaceHeader({
   title,
   body,
   onLogout,
+  activeSection,
+  showSessionLabel = true,
 }: {
   session: DemoSessionLike;
   eyebrow: string;
   title: string;
   body: string;
   onLogout: () => void;
+  activeSection?: "today" | "square";
+  showSessionLabel?: boolean;
 }) {
   return (
     <header className="mb-8 flex flex-wrap items-start justify-between gap-5 border-b border-line pb-6">
@@ -84,15 +97,41 @@ function WorkspaceHeader({
         <p className="mb-2 text-sm font-medium text-brand">{eyebrow}</p>
         <h1 className="text-3xl font-bold leading-tight">{title}</h1>
         <p className="mt-3 max-w-3xl text-sm leading-7 text-ink-soft">{body}</p>
-        <p className="mt-2 text-xs text-ink-muted">{session.label} · 网页端会员体验</p>
+        {showSessionLabel ? (
+          <p className="mt-2 text-xs text-ink-muted">{session.label} · 网页端会员体验</p>
+        ) : null}
       </div>
-      <button
-        type="button"
-        onClick={onLogout}
-        className="text-sm text-ink-muted transition hover:text-ink"
-      >
-        退出账号 ↩
-      </button>
+      <div className="flex flex-col items-end gap-3">
+        {activeSection ? (
+          <nav aria-label="会员工作区" className="flex rounded-full border border-line bg-surface p-1">
+            <Link
+              href="/member/today"
+              aria-current={activeSection === "today" ? "page" : undefined}
+              className={`rounded-full px-4 py-2 text-sm transition ${
+                activeSection === "today" ? "bg-brand text-white" : "text-ink-soft hover:text-brand"
+              }`}
+            >
+              今日
+            </Link>
+            <Link
+              href="/member/square"
+              aria-current={activeSection === "square" ? "page" : undefined}
+              className={`rounded-full px-4 py-2 text-sm transition ${
+                activeSection === "square" ? "bg-brand text-white" : "text-ink-soft hover:text-brand"
+              }`}
+            >
+              广场
+            </Link>
+          </nav>
+        ) : null}
+        <button
+          type="button"
+          onClick={onLogout}
+          className="text-sm text-ink-muted transition hover:text-ink"
+        >
+          退出账号 ↩
+        </button>
+      </div>
     </header>
   );
 }
@@ -602,6 +641,7 @@ function TodayView({
   onReassess,
   onReset,
   onLogout,
+  onPublishToSquare,
 }: {
   session: DemoSessionLike;
   program: MemberProgramState;
@@ -617,6 +657,7 @@ function TodayView({
   onReassess: () => void;
   onReset: () => void;
   onLogout: () => void;
+  onPublishToSquare: (checkin: MemberProgramState["checkins"][number], visibleTaskIds: string[]) => boolean;
 }) {
   const todayDateKey = memberEffectiveTodayDateKey(program);
   const journeyDays = memberJourneyDays(program, todayDateKey);
@@ -670,6 +711,7 @@ function TodayView({
         title="今天，点亮你的 3+3"
         body="同一组对内 3 项与对外 3 项连续练习 7 天。每一天绑定真实日期；允许部分完成，也允许随时撤销尚未提交的选择。"
         onLogout={onLogout}
+        activeSection="today"
       />
 
       <section className="mb-6 grid gap-4 lg:grid-cols-[1fr_0.55fr]">
@@ -831,7 +873,13 @@ function TodayView({
 
       {todayCheckin ? (
         <div className="mt-6">
-          <MemberOutcome program={program} checkin={todayCheckin} />
+          <MemberOutcome
+            program={program}
+            checkin={todayCheckin}
+            onPublishToSquare={(visibleTaskIds) =>
+              onPublishToSquare(todayCheckin, visibleTaskIds)
+            }
+          />
         </div>
       ) : null}
 
@@ -911,12 +959,14 @@ function FeedbackView({
   onBack,
   onReset,
   onLogout,
+  onPublishToSquare,
 }: {
   session: DemoSessionLike;
   program: MemberProgramState;
   onBack: () => void;
   onReset: () => void;
   onLogout: () => void;
+  onPublishToSquare: (visibleTaskIds: string[]) => boolean;
 }) {
   const checkin = latestMemberCheckin(program);
   if (!checkin) return <LoadingWorkspace />;
@@ -929,9 +979,14 @@ function FeedbackView({
         title="今天的结果已保留"
         body="旧的反馈链接继续可用；新的打卡流程会直接在今日页展示同一份鼓励、下一步与分享海报。"
         onLogout={onLogout}
+        activeSection="today"
       />
 
-      <MemberOutcome program={program} checkin={checkin} />
+      <MemberOutcome
+        program={program}
+        checkin={checkin}
+        onPublishToSquare={onPublishToSquare}
+      />
 
       <div className="mt-6 flex flex-wrap gap-3">
         <button
@@ -949,6 +1004,30 @@ function FeedbackView({
           重置演示
         </button>
       </div>
+      <WorkspaceFooter />
+    </div>
+  );
+}
+
+function SquareView({
+  session,
+  onLogout,
+}: {
+  session: DemoSessionLike;
+  onLogout: () => void;
+}) {
+  return (
+    <div className="mx-auto max-w-6xl px-6 py-10">
+      <WorkspaceHeader
+        session={session}
+        eyebrow="One Day 会员工作区"
+        title="广场"
+        body="看看同一社群今天留下的行动和笔记，也可以用你的广场化名发布一条愿意公开的内容。"
+        onLogout={onLogout}
+        activeSection="square"
+        showSessionLabel={false}
+      />
+      <MemberSquare session={session} />
       <WorkspaceFooter />
     </div>
   );
@@ -992,7 +1071,7 @@ export function MemberWorkspace({ view }: { view: MemberWorkspaceView }) {
       router.replace(memberHomeRoute(program));
       return;
     }
-    if (view !== "onboarding" && !program) {
+    if (view !== "onboarding" && view !== "square" && !program) {
       router.replace("/member/onboarding");
       return;
     }
@@ -1023,6 +1102,38 @@ export function MemberWorkspace({ view }: { view: MemberWorkspaceView }) {
     if (session) window.localStorage.removeItem(legacyMemberProgramStorageKey(session.email));
     setProgram(null);
     router.push("/member/onboarding");
+  };
+
+  const publishCheckinToSquare = (
+    activeProgram: MemberProgramState,
+    checkin: MemberProgramState["checkins"][number],
+    visibleTaskIds: string[],
+  ) => {
+    if (!session) return false;
+    const feedback = buildMemberFeedback(activeProgram, checkin);
+    if (!feedback) return false;
+    const visibleIds = new Set(visibleTaskIds);
+    const visibleTaskTitles = allMemberTasks(activeProgram)
+      .filter(
+        (task) =>
+          checkin.completedTaskIds.includes(task.id) && visibleIds.has(task.id),
+      )
+      .map((task) => task.title);
+    try {
+      createLocalMemberSquareProvider(window.localStorage).publishCheckin(session.email, {
+        sourceKey: `checkin:${checkin.dateKey}`,
+        day: checkin.day,
+        dateLabel: formatMemberDate(checkin.dateKey),
+        completedCount: checkin.completedTaskIds.length,
+        totalTasks: allMemberTasks(activeProgram).length,
+        encouragement: feedback.encouragement,
+        visibleTaskTitles,
+      });
+      router.push("/member/square?published=checkin");
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   if (!booted) return <LoadingWorkspace />;
@@ -1059,6 +1170,9 @@ export function MemberWorkspace({ view }: { view: MemberWorkspaceView }) {
       />
     );
   }
+  if (view === "square") {
+    return <SquareView session={session} onLogout={logout} />;
+  }
   if (!program) return <LoadingWorkspace />;
   if (view === "today") {
     const todayDateKey = memberEffectiveTodayDateKey(program);
@@ -1087,6 +1201,9 @@ export function MemberWorkspace({ view }: { view: MemberWorkspaceView }) {
         onReassess={() => router.push("/member/onboarding")}
         onReset={resetDemo}
         onLogout={logout}
+        onPublishToSquare={(checkin, visibleTaskIds) =>
+          publishCheckinToSquare(program, checkin, visibleTaskIds)
+        }
       />
     );
   }
@@ -1101,6 +1218,9 @@ export function MemberWorkspace({ view }: { view: MemberWorkspaceView }) {
       onBack={() => router.push("/member/today")}
       onReset={resetDemo}
       onLogout={logout}
+      onPublishToSquare={(visibleTaskIds) =>
+        publishCheckinToSquare(program, latestMemberCheckin(program)!, visibleTaskIds)
+      }
     />
   );
 }
